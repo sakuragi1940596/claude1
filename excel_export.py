@@ -74,16 +74,8 @@ def generate_excel(application, customer):
     ws = wb['様式第一号']
 
     # ============================================================
-    # 申請日（行9: 令和__年__月__日）
-    # 年: EZ9（結合セル1つ）, 月: FJ9, 日: FU9
+    # 申請日（行9: 令和__年__月__日）→ 行政庁側記入欄のため空欄
     # ============================================================
-    if application.get('application_date'):
-        parts = application['application_date'].split('-')
-        if len(parts) == 3:
-            year = int(parts[0]) - 2018  # 西暦→令和
-            ws['EZ9'] = str(year)
-            ws['FJ9'] = str(int(parts[1]))
-            ws['FU9'] = str(int(parts[2]))
 
     # ============================================================
     # 項番01: 許可番号
@@ -154,7 +146,19 @@ def generate_excel(application, customer):
         'AR40', 'AY40', 'BF40', 'BM40', 'BT40', 'CA40', 'CH40', 'CO40', 'CV40', 'DC40',
         'DJ40', 'DQ40', 'DX40', 'EE40', 'EL40', 'ES40', 'EZ40', 'FG40', 'FN40', 'FU40',
     ]
-    _fill_cells(ws, name_kana_cells, customer.get('name_kana'))
+    name_kana = customer.get('name_kana') or ''
+    if customer.get('corporation_type') and int(customer['corporation_type']) == 1:
+        # 法人の場合、法人格のフリガナを除去
+        corp_kana_list = [
+            'カブシキガイシャ', 'ユウゲンガイシャ', 'ゴウドウガイシャ', 'ゴウシガイシャ',
+            'ゴウメイガイシャ', 'イッパンシャダンホウジン', 'イッパンザイダンホウジン',
+            'コウエキシャダンホウジン', 'コウエキザイダンホウジン',
+            'トクテイヒエイリカツドウホウジン', 'シャカイフクシホウジン',
+            'ガッコウホウジン', 'イリョウホウジン',
+        ]
+        for corp_kana in corp_kana_list:
+            name_kana = name_kana.replace(corp_kana, '').strip()
+    _fill_cells(ws, name_kana_cells, name_kana)
 
     # ============================================================
     # 項番07: 商号又は名称（行46, 20文字分）
@@ -163,7 +167,27 @@ def generate_excel(application, customer):
         'AR46', 'AY46', 'BF46', 'BM46', 'BT46', 'CA46', 'CH46', 'CO46', 'CV46', 'DC46',
         'DJ46', 'DQ46', 'DX46', 'EE46', 'EL46', 'ES46', 'EZ46', 'FG46', 'FN46', 'FU46',
     ]
-    _fill_cells(ws, name_cells, customer.get('name'))
+    name = customer.get('name') or ''
+    if customer.get('corporation_type') and int(customer['corporation_type']) == 1:
+        # 法人格を略称に置換
+        corp_replacements = [
+            ('株式会社', '（株）'),
+            ('有限会社', '（有）'),
+            ('合同会社', '（合）'),
+            ('合資会社', '（資）'),
+            ('合名会社', '（名）'),
+            ('一般社団法人', '（一社）'),
+            ('一般財団法人', '（一財）'),
+            ('公益社団法人', '（公社）'),
+            ('公益財団法人', '（公財）'),
+            ('特定非営利活動法人', '（特非）'),
+            ('社会福祉法人', '（福）'),
+            ('学校法人', '（学）'),
+            ('医療法人', '（医）'),
+        ]
+        for full, short in corp_replacements:
+            name = name.replace(full, short)
+    _fill_cells(ws, name_cells, name)
 
     # ============================================================
     # 項番08: 代表者又は個人の氏名のフリガナ（行52, 20文字分）
@@ -215,7 +239,7 @@ def generate_excel(application, customer):
             _fill_cells(ws, ['AR67', 'AV67', 'AZ67'], parts[0])
             _fill_cells(ws, ['BH67', 'BL67', 'BP67', 'BT67'], parts[1])
 
-    # 電話番号（DD67〜EZ67, 最大13文字）
+    # 電話番号（DD67〜EZ67, 最大12文字）
     phone_cells = [
         'DD67', 'DH67', 'DL67', 'DP67', 'DT67', 'DX67',
         'EB67', 'EF67', 'EJ67', 'EN67', 'ER67', 'EV67', 'EZ67',
@@ -226,12 +250,14 @@ def generate_excel(application, customer):
     # FAX番号（BQ70 結合セル）
     if customer.get('fax'):
         ws['BQ70'] = customer['fax']
+    else:
+        ws['BQ70'] = 'なし'
 
     # ============================================================
     # 項番13: 法人又は個人の別
     # ============================================================
     if customer.get('corporation_type'):
-        ws['AL75'] = str(customer['corporation_type'])
+        ws['AR75'] = str(customer['corporation_type'])
 
     # 資本金額（千円）（行75: BT75,BX75,CB75,CF75,CJ75,CN75,CR75,CV75,CZ75）
     capital_cells = ['BT75', 'BX75', 'CB75', 'CF75', 'CJ75', 'CN75', 'CR75', 'CV75', 'CZ75']
@@ -250,9 +276,11 @@ def generate_excel(application, customer):
     # 項番14: 兼業の有無
     # ============================================================
     if application.get('side_business'):
-        ws['AL78'] = str(application['side_business'])
-    if application.get('side_business_type'):
-        ws['CG77'] = application['side_business_type']
+        ws['AR78'] = str(application['side_business'])
+        if int(application['side_business']) == 2:
+            ws['CG79'] = 'なし'
+        elif application.get('side_business_type'):
+            ws['CG79'] = application['side_business_type']
 
     # ============================================================
     # 項番15: 許可換えの区分
@@ -275,12 +303,19 @@ def generate_excel(application, customer):
         _fill_digits(ws, ['FH88', 'FL88'], application['old_permit_day'])
 
     # ============================================================
-    # 申請者・代理人（行13-16）
+    # 申請者・代理人（行11-16）
     # ============================================================
-    if application.get('applicant_name'):
-        ws['DK13'] = application['applicant_name']
+    # 申請者住所（所在地）
     if application.get('applicant_address'):
-        ws['DL15'] = application['applicant_address']
+        ws['DK11'] = application['applicant_address']
+    # 申請者氏名（法人名）
+    if application.get('applicant_name'):
+        ws['DK12'] = application['applicant_name']
+    # 代表者氏名（法人の場合）
+    if customer.get('corporation_type') and int(customer['corporation_type']) == 1:
+        if customer.get('representative'):
+            ws['DK13'] = customer['representative']
+    # 申請者代理人
     if application.get('proxy_name'):
         ws['DL16'] = application['proxy_name']
 
