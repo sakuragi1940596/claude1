@@ -349,8 +349,16 @@ def generate_excel(application, customer):
 
 def generate_officers_excel(officers, application_date=None):
     """役員一覧表（様式第一号別紙一）のExcelを生成してバイトデータを返す"""
+    from openpyxl.styles import Alignment, Font
     wb = load_workbook(OFFICERS_TEMPLATE_PATH)
     ws = wb['様式第一号別紙一']
+
+    # ヘッダーのフリガナ復元（openpyxlでルビが消えるため改行テキストで再現）
+    ws['B8'] = 'フリ\n氏'
+    ws['AL8'] = 'ガナ\n名'
+    for cell_ref in ['B8', 'AL8']:
+        ws[cell_ref].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws[cell_ref].font = Font(name='ＭＳ 明朝', size=12)
 
     # 日付（行5: FD5 結合セル）
     if application_date:
@@ -364,10 +372,17 @@ def generate_officers_excel(officers, application_date=None):
     # 役員データ（行9〜31、最大23名）
     for i, officer in enumerate(officers[:23]):
         row = 9 + i
-        ws[f'B{row}'] = officer.get('last_name', '')
-        ws[f'AL{row}'] = officer.get('first_name', '')
+        # フリガナ\n氏名 の2行構成
+        last_kana = officer.get('last_name_kana', '') or ''
+        first_kana = officer.get('first_name_kana', '') or ''
+        last_name = officer.get('last_name', '') or ''
+        first_name = officer.get('first_name', '') or ''
+        ws[f'B{row}'] = f'{last_kana}\n{last_name}' if last_kana else last_name
+        ws[f'AL{row}'] = f'{first_kana}\n{first_name}' if first_kana else first_name
         ws[f'BT{row}'] = officer.get('role', '')
         ws[f'EL{row}'] = officer.get('full_or_part', '')
+        for cell_ref in [f'B{row}', f'AL{row}']:
+            ws[cell_ref].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
     output = BytesIO()
     wb.save(output)
