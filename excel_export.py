@@ -245,8 +245,8 @@ def generate_excel(application, customer):
         'DD67', 'DH67', 'DL67', 'DP67', 'DT67', 'DX67',
         'EB67', 'EF67', 'EJ67', 'EN67', 'ER67', 'EV67', 'EZ67',
     ]
-    if customer.get('phone'):
-        _fill_cells(ws, phone_cells, customer['phone'].replace('-', '').replace('ー', ''))
+       if customer.get('phone'):
+        _fill_cells(ws, phone_cells, customer['phone'])
 
     # FAX番号（BQ70 結合セル）
     if customer.get('fax'):
