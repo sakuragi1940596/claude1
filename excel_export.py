@@ -211,7 +211,11 @@ def generate_excel(application, customer):
         'AR61', 'AY61', 'BF61', 'BM61', 'BT61', 'CA61', 'CH61', 'CO61', 'CV61', 'DC61',
         'DJ61', 'DQ61', 'DX61', 'EE61', 'EL61', 'ES61', 'EZ61', 'FG61', 'FN61', 'FU61',
     ]
-    _fill_cells(ws, address_cells, customer.get('address'))
+    address = customer.get('address', '') or ''
+    address = address.replace('丁目', '-').replace('番地', '-').replace('番', '-').replace('号', '')
+    # 末尾のハイフンを除去
+    address = address.rstrip('-')
+    _fill_cells(ws, address_cells, address)
 
     # ============================================================
     # 項番12: 郵便番号（3桁: AR67,AV67,AZ67 / 4桁: BH67,BL67,BP67,BT67）
