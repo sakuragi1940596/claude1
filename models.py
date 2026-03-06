@@ -69,6 +69,17 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers(id)
         );
+        CREATE TABLE IF NOT EXISTS officers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            application_id INTEGER NOT NULL,
+            last_name TEXT,
+            first_name TEXT,
+            role TEXT,
+            full_or_part TEXT,
+            sort_order INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (application_id) REFERENCES applications(id)
+        );
     ''')
     conn.commit()
     conn.close()
