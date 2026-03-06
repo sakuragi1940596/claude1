@@ -19,6 +19,7 @@ def init_db():
             name TEXT NOT NULL,
             name_kana TEXT,
             representative TEXT,
+            representative_title TEXT,
             representative_kana TEXT,
             corporate_number TEXT,
             capital_amount TEXT,
@@ -83,5 +84,14 @@ def init_db():
             FOREIGN KEY (application_id) REFERENCES applications(id)
         );
     ''')
+        # マイグレーション: 既存テーブルに新カラムを追加
+    migrations = [
+        "ALTER TABLE customers ADD COLUMN representative_title TEXT",
+    ]
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+        except sqlite3.OperationalError:
+            pass  # カラムが既に存在する場合は無視
     conn.commit()
     conn.close()
