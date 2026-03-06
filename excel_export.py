@@ -209,13 +209,12 @@ def generate_excel(application, customer):
             _fill_cells(ws, ['AR67', 'AV67', 'AZ67'], postal[:3])
             _fill_cells(ws, ['BH67', 'BL67', 'BP67', 'BT67'], postal[3:])
 
-
     # 電話番号（DD67〜EZ67, 最大12文字）
     phone_cells = [
         'DD67', 'DH67', 'DL67', 'DP67', 'DT67', 'DX67',
         'EB67', 'EF67', 'EJ67', 'EN67', 'ER67', 'EV67', 'EZ67',
     ]
-       if customer.get('phone'):
+    if customer.get('phone'):
         _fill_cells(ws, phone_cells, customer['phone'])
 
     # FAX番号（BQ70 結合セル）
