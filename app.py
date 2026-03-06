@@ -65,7 +65,7 @@ def customer_edit(customer_id):
     db = get_db()
     if request.method == 'POST':
         db.execute('''
-            UPDATE customers SET name=?, name_kana=?, representative=?, representative_kana=?,
+            UPDATE customers SET name=?, name_kana=?, representative=?, representative_title=?, representative_kana=?,
                 corporate_number=?, capital_amount=?, corporation_type=?,
                 postal_code=?, prefecture=?, city=?, address=?, phone=?, fax=?,
                 updated_at=CURRENT_TIMESTAMP
@@ -74,6 +74,7 @@ def customer_edit(customer_id):
             request.form['name'],
             request.form.get('name_kana', ''),
             request.form.get('representative', ''),
+            request.form.get('representative_title', ''),
             request.form.get('representative_kana', ''),
             request.form.get('corporate_number', ''),
             request.form.get('capital_amount', ''),
