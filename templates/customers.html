@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+    <h2>顧客一覧</h2>
+    <a href="{{ url_for('customer_new') }}" class="btn btn-primary">新規顧客登録</a>
+</div>
+{% if customers %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>商号・名称</th>
+            <th>代表者</th>
+            <th>電話番号</th>
+            <th>所在地</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in customers %}
+        <tr>
+            <td>{{ c['name'] }}</td>
+            <td>{{ c['representative'] }}</td>
+            <td>{{ c['phone'] }}</td>
+            <td>{{ c['prefecture'] }}{{ c['city'] }}{{ c['address'] }}</td>
+            <td class="actions">
+                <a href="{{ url_for('application_list', customer_id=c['id']) }}" class="btn btn-sm btn-info">申請書</a>
+                <a href="{{ url_for('customer_edit', customer_id=c['id']) }}" class="btn btn-sm">編集</a>
+                <form method="POST" action="{{ url_for('customer_delete', customer_id=c['id']) }}" class="inline-form"
+                      onsubmit="return confirm('この顧客と関連する申請書を全て削除します。よろしいですか？')">
+                    <button type="submit" class="btn btn-sm btn-danger">削除</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-message">顧客が登録されていません。「新規顧客登録」から登録してください。</p>
+{% endif %}
+{% endblock %}
