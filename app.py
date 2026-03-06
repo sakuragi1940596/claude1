@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from models import get_db, init_db
-from excel_export import generate_excel, BUSINESS_TYPES
+from excel_export import generate_excel, generate_officers_excel, BUSINESS_TYPES
 from io import BytesIO
 import os
 
@@ -260,6 +260,74 @@ def application_export(app_id):
     excel_data = generate_excel(dict(application), dict(customer))
     customer_name = customer['name'] or '申請書'
     filename = f"建設業許可申請書_{customer_name}.xlsx"
+
+    return send_file(
+        BytesIO(excel_data),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+# ===== 役員管理 =====
+@app.route('/applications/<int:app_id>/officers', methods=['GET'])
+def officers_list(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    officers = db.execute(
+        'SELECT * FROM officers WHERE application_id=? ORDER BY sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
+    return render_template('officers.html', customer=customer, application=application,
+                           officers=officers)
+
+
+@app.route('/applications/<int:app_id>/officers/save', methods=['POST'])
+def officers_save(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    # 既存データを削除して再登録
+    db.execute('DELETE FROM officers WHERE application_id=?', (app_id,))
+    total_rows = int(request.form.get('total_rows', 0))
+    sort_order = 0
+    for i in range(total_rows):
+        if request.form.get(f'delete_{i}'):
+            continue
+        last_name = request.form.get(f'last_name_{i}', '').strip()
+        first_name = request.form.get(f'first_name_{i}', '').strip()
+        role = request.form.get(f'role_{i}', '').strip()
+        full_or_part = request.form.get(f'full_or_part_{i}', '').strip()
+        if last_name or first_name:
+            db.execute('''
+                INSERT INTO officers (application_id, last_name, first_name, role, full_or_part, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (app_id, last_name, first_name, role, full_or_part, sort_order))
+            sort_order += 1
+    db.commit()
+    db.close()
+    flash('役員情報を保存しました。', 'success')
+    return redirect(url_for('officers_list', app_id=app_id))
+
+
+@app.route('/applications/<int:app_id>/officers/export')
+def officers_export(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    officers = db.execute(
+        'SELECT * FROM officers WHERE application_id=? ORDER BY sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
+
+    excel_data = generate_officers_excel(
+        [dict(o) for o in officers],
+        application.get('application_date')
+    )
+    customer_name = customer['name'] or '役員一覧'
+    filename = f"役員一覧表_{customer_name}.xlsx"
 
     return send_file(
         BytesIO(excel_data),
