@@ -392,7 +392,7 @@ def generate_offices_list_excel(application, customer, offices):
 
     branch_configs = [
         {   # 従たる営業所1
-            'kana_row': 36, 'name_row': 39,
+            'kana_cell': 'BD33', 'name_row1': 36, 'name_row2': 39,
             'city_code_cells': ['AS43', 'AW43', 'BA43', 'BE43', 'BI43'],
             'prefecture_cell': 'BP43', 'city_cell': 'DT43',
             'addr_row1': 46, 'addr_row2': 49,
@@ -405,7 +405,7 @@ def generate_offices_list_excel(application, customer, offices):
             'biz_row': 56,
         },
         {   # 従たる営業所2
-            'kana_row': 67, 'name_row': 70,
+            'kana_cell': 'BD64', 'name_row1': 67, 'name_row2': 70,
             'city_code_cells': ['AS74', 'AW74', 'BA74', 'BE74', 'BI74'],
             'prefecture_cell': 'BP74', 'city_cell': 'DT74',
             'addr_row1': 77, 'addr_row2': 80,
@@ -424,13 +424,17 @@ def generate_offices_list_excel(application, customer, offices):
             break
         office = branch_offices[idx]
 
-        # フリガナ（20文字）
-        kana_cells = [f'{col}{cfg["kana_row"]}' for col in _BRANCH_NAME_CELL_COLS]
-        _fill_cells(ws, kana_cells, office.get('name_kana'))
+        # フリガナ（結合セル）
+        if office.get('name_kana'):
+            ws[cfg['kana_cell']] = office['name_kana']
 
-        # 名称（20文字）
-        name_cells = [f'{col}{cfg["name_row"]}' for col in _BRANCH_NAME_CELL_COLS]
-        _fill_cells(ws, name_cells, office.get('name'))
+        # 名称（1行目20文字 + 2行目20文字 = 最大40文字）
+        name = office.get('name', '') or ''
+        name_cells_1 = [f'{col}{cfg["name_row1"]}' for col in _BRANCH_NAME_CELL_COLS]
+        name_cells_2 = [f'{col}{cfg["name_row2"]}' for col in _BRANCH_NAME_CELL_COLS]
+        _fill_cells(ws, name_cells_1, name[:20])
+        if len(name) > 20:
+            _fill_cells(ws, name_cells_2, name[20:40])
 
         # 市区町村コード（5桁）
         if office.get('city_code'):
