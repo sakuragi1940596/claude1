@@ -290,10 +290,12 @@ def generate_excel(application, customer):
     # 申請者氏名（法人名）
     if application.get('applicant_name'):
         ws['DK12'] = application['applicant_name']
-    # 代表者氏名（法人の場合）
+    # 代表者氏名（法人の場合：肩書＋氏名）
     if customer.get('corporation_type') and int(customer['corporation_type']) == 1:
         if customer.get('representative'):
-            ws['DK13'] = customer['representative']
+            title = customer.get('representative_title', '')
+            name = customer['representative']
+            ws['DK13'] = f"{title}　{name}" if title else name
     # 申請者代理人
     if application.get('proxy_name'):
         ws['DL16'] = application['proxy_name']
