@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero">
+    <h1>建設業許可申請書作成システム</h1>
+    <p>顧客情報を登録し、建設業許可申請書を簡単に作成できます。</p>
+    <div class="hero-actions">
+        <a href="{{ url_for('customer_list') }}" class="btn btn-primary btn-lg">顧客管理へ</a>
+    </div>
+</div>
+<div class="card-grid">
+    <div class="card">
+        <h3>1. 顧客登録</h3>
+        <p>申請者の基本情報（商号、代表者、住所等）を登録します。</p>
+    </div>
+    <div class="card">
+        <h3>2. 申請書作成</h3>
+        <p>顧客を選び、申請内容を入力して申請書データを作成します。</p>
+    </div>
+    <div class="card">
+        <h3>3. Excel出力</h3>
+        <p>入力データを様式第一号のExcelに反映してダウンロードします。</p>
+    </div>
+</div>
+{% endblock %}
