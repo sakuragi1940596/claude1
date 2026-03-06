@@ -93,7 +93,7 @@ def generate_excel(application, customer):
     # ============================================================
     # 項番02:入力不要
     # ============================================================
-        if application.get('application_category'):
+    if application.get('application_category'):
         ws['AL25'] = str(application['application_category'])
     # 許可の有効期間の調整（1:する 2:しない）
     if application.get('validity_adjustment'):
