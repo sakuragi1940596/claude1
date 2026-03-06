@@ -4,6 +4,7 @@ from openpyxl import load_workbook
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '許可申請書.xlsx')
 OFFICERS_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '役員の一覧（法人用）.xlsx')
+OFFICES_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '営業所一覧（新規）.xlsx')
 
 # 建設業29業種コード
 BUSINESS_TYPES = [
@@ -319,6 +320,163 @@ def generate_excel(application, customer):
         ws['B105'] = application['contact_fax']
 
     # バイトデータとして返す
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
+
+# 営業所一覧用の業種列（許可申請書とは異なるオフセット）
+OFFICES_BIZ_TYPE_COLUMNS = [
+    'AS', 'AW', 'BA', 'BE', 'BI', 'BM', 'BQ', 'BU', 'BY', 'CC',
+    'CG', 'CK', 'CO', 'CS', 'CW', 'DA', 'DE', 'DI', 'DM', 'DQ',
+    'DU', 'DY', 'EC', 'EG', 'EK', 'EO', 'ES', 'EW', 'FA',
+]
+
+# 従たる営業所の名前セル（20文字：各6列幅の結合セル）
+_BRANCH_NAME_CELL_COLS = [
+    'AS', 'AZ', 'BG', 'BN', 'BU', 'CB', 'CI', 'CP', 'CW', 'DD',
+    'DK', 'DR', 'DY', 'EF', 'EM', 'ET', 'FA', 'FH', 'FO', 'FV',
+]
+
+
+def generate_offices_list_excel(application, customer, offices):
+    """営業所一覧表（新規）のExcelを生成してバイトデータを返す"""
+    wb = load_workbook(OFFICES_TEMPLATE_PATH)
+    ws = wb['様式第一号別紙二（１）']
+
+    # ============================================================
+    # 項番82: 許可番号（行13-14）
+    # ============================================================
+    # 許可番号（6桁: DA13〜DU13）
+    permit_cells = ['DA13', 'DE13', 'DI13', 'DM13', 'DQ13', 'DU13']
+    if application.get('permit_number'):
+        _fill_digits(ws, permit_cells, application['permit_number'])
+
+    # 許可年月日
+    if application.get('permit_year'):
+        _fill_digits(ws, ['EM13', 'EQ13'], application['permit_year'])
+    if application.get('permit_month'):
+        _fill_digits(ws, ['EX13', 'FB13'], application['permit_month'])
+    if application.get('permit_day'):
+        _fill_digits(ws, ['FI13', 'FM13'], application['permit_day'])
+
+    # ============================================================
+    # 主たる営業所（行18-29）
+    # ============================================================
+    # フリガナ（BE19 結合セル）
+    main_name_kana = customer.get('name_kana', '') or ''
+    if main_name_kana:
+        ws['BE19'] = main_name_kana
+
+    # 名称（BE21 結合セル）
+    main_name = customer.get('name', '') or ''
+    if main_name:
+        ws['BE21'] = main_name
+
+    # 主たる営業所の営業しようとする建設業（行25-26）
+    main_office = None
+    for o in offices:
+        if o.get('office_type') == 1:
+            main_office = o
+            break
+
+    if main_office and main_office.get('business_types'):
+        selected = main_office['business_types'].split(',')
+        for i, (label, code) in enumerate(BUSINESS_TYPES):
+            if code in selected:
+                col = OFFICES_BIZ_TYPE_COLUMNS[i]
+                ws[f'{col}25'] = '1'
+
+    # ============================================================
+    # 従たる営業所（最大2件）
+    # ============================================================
+    branch_offices = [o for o in offices if o.get('office_type') == 2]
+
+    branch_configs = [
+        {   # 従たる営業所1
+            'kana_row': 36, 'name_row': 39,
+            'city_code_cells': ['AS43', 'AW43', 'BA43', 'BE43', 'BI43'],
+            'prefecture_cell': 'BP43', 'city_cell': 'DT43',
+            'addr_row1': 46, 'addr_row2': 49,
+            'postal_first': ['AS52', 'AW52', 'BA52'],
+            'postal_last': ['BI52', 'BM52', 'BQ52', 'BU52'],
+            'phone_cells': [
+                'DE52', 'DI52', 'DM52', 'DQ52', 'DU52', 'DY52',
+                'EC52', 'EG52', 'EK52', 'EO52', 'ES52', 'EW52', 'FA52',
+            ],
+            'biz_row': 56,
+        },
+        {   # 従たる営業所2
+            'kana_row': 67, 'name_row': 70,
+            'city_code_cells': ['AS74', 'AW74', 'BA74', 'BE74', 'BI74'],
+            'prefecture_cell': 'BP74', 'city_cell': 'DT74',
+            'addr_row1': 77, 'addr_row2': 80,
+            'postal_first': ['AS83', 'AW83', 'BA83'],
+            'postal_last': ['BI83', 'BM83', 'BQ83', 'BU83'],
+            'phone_cells': [
+                'DE83', 'DI83', 'DM83', 'DQ83', 'DU83', 'DY83',
+                'EC83', 'EG83', 'EK83', 'EO83', 'ES83', 'EW83', 'FA83',
+            ],
+            'biz_row': 87,
+        },
+    ]
+
+    for idx, cfg in enumerate(branch_configs):
+        if idx >= len(branch_offices):
+            break
+        office = branch_offices[idx]
+
+        # フリガナ（20文字）
+        kana_cells = [f'{col}{cfg["kana_row"]}' for col in _BRANCH_NAME_CELL_COLS]
+        _fill_cells(ws, kana_cells, office.get('name_kana'))
+
+        # 名称（20文字）
+        name_cells = [f'{col}{cfg["name_row"]}' for col in _BRANCH_NAME_CELL_COLS]
+        _fill_cells(ws, name_cells, office.get('name'))
+
+        # 市区町村コード（5桁）
+        if office.get('city_code'):
+            _fill_digits(ws, cfg['city_code_cells'], office['city_code'])
+
+        # 都道府県名
+        if office.get('prefecture'):
+            ws[cfg['prefecture_cell']] = office['prefecture']
+
+        # 市区町村名
+        if office.get('city'):
+            ws[cfg['city_cell']] = office['city']
+
+        # 所在地（1行目20文字 + 2行目20文字 = 最大40文字）
+        addr_cells_1 = [f'{col}{cfg["addr_row1"]}' for col in _BRANCH_NAME_CELL_COLS]
+        addr_cells_2 = [f'{col}{cfg["addr_row2"]}' for col in _BRANCH_NAME_CELL_COLS]
+        address = office.get('address', '') or ''
+        address = address.replace('丁目', '-').replace('番地', '-').replace('番', '-').replace('号', '')
+        address = address.rstrip('-')
+        _fill_cells(ws, addr_cells_1, address[:20])
+        if len(address) > 20:
+            _fill_cells(ws, addr_cells_2, address[20:40])
+
+        # 郵便番号
+        if office.get('postal_code'):
+            parts = office['postal_code'].replace('ー', '-').replace('－', '-').split('-')
+            if len(parts) == 2:
+                _fill_cells(ws, cfg['postal_first'], parts[0])
+                _fill_cells(ws, cfg['postal_last'], parts[1])
+
+        # 電話番号
+        if office.get('phone'):
+            phone = office['phone'].replace('-', '').replace('ー', '')
+            _fill_cells(ws, cfg['phone_cells'], phone)
+
+        # 営業しようとする建設業（29業種）
+        if office.get('business_types'):
+            selected = office['business_types'].split(',')
+            for i, (label, code) in enumerate(BUSINESS_TYPES):
+                if code in selected:
+                    col = OFFICES_BIZ_TYPE_COLUMNS[i]
+                    ws[f'{col}{cfg["biz_row"]}'] = '1'
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)

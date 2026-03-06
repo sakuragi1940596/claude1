@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from models import get_db, init_db
-from excel_export import generate_excel, generate_officers_excel, BUSINESS_TYPES
+from excel_export import generate_excel, generate_officers_excel, generate_offices_list_excel, BUSINESS_TYPES
 from io import BytesIO
 import os
 
@@ -332,6 +332,90 @@ def officers_export(app_id):
     )
     customer_name = customer['name'] or '役員一覧'
     filename = f"役員一覧表_{customer_name}.xlsx"
+
+    return send_file(
+        BytesIO(excel_data),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+# ===== 営業所管理 =====
+@app.route('/applications/<int:app_id>/offices', methods=['GET'])
+def offices_list(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    offices = db.execute(
+        'SELECT * FROM offices WHERE application_id=? ORDER BY office_type, sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
+    return render_template('offices_list.html', customer=customer, application=application,
+                           offices=offices, business_types=BUSINESS_TYPES)
+
+
+@app.route('/applications/<int:app_id>/offices/save', methods=['POST'])
+def offices_save(app_id):
+    db = get_db()
+    db.execute('DELETE FROM offices WHERE application_id=?', (app_id,))
+
+    total_rows = int(request.form.get('total_rows', 0))
+    for i in range(total_rows):
+        if request.form.get(f'delete_{i}'):
+            continue
+        office_type = int(request.form.get(f'office_type_{i}', 2))
+        name = request.form.get(f'name_{i}', '').strip()
+        name_kana = request.form.get(f'name_kana_{i}', '').strip()
+        business_types = ','.join(request.form.getlist(f'business_types_{i}'))
+
+        # 主たる営業所は業種のみ、従たる営業所はフル入力
+        if office_type == 1:
+            if business_types:
+                db.execute('''
+                    INSERT INTO offices (application_id, office_type, name, name_kana,
+                        business_types, sort_order)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (app_id, 1, '', '', business_types, 0))
+        else:
+            city_code = request.form.get(f'city_code_{i}', '').strip()
+            prefecture = request.form.get(f'prefecture_{i}', '').strip()
+            city = request.form.get(f'city_{i}', '').strip()
+            address = request.form.get(f'address_{i}', '').strip()
+            postal_code = request.form.get(f'postal_code_{i}', '').strip()
+            phone = request.form.get(f'phone_{i}', '').strip()
+            if name or business_types:
+                db.execute('''
+                    INSERT INTO offices (application_id, office_type, name, name_kana,
+                        city_code, prefecture, city, address, postal_code, phone,
+                        business_types, sort_order)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (app_id, 2, name, name_kana, city_code, prefecture, city,
+                      address, postal_code, phone, business_types, i))
+
+    db.commit()
+    db.close()
+    flash('営業所情報を保存しました。', 'success')
+    return redirect(url_for('offices_list', app_id=app_id))
+
+
+@app.route('/applications/<int:app_id>/offices/export')
+def offices_export(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    offices = db.execute(
+        'SELECT * FROM offices WHERE application_id=? ORDER BY office_type, sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
+
+    excel_data = generate_offices_list_excel(
+        dict(application), dict(customer), [dict(o) for o in offices]
+    )
+    customer_name = customer['name'] or '営業所一覧'
+    filename = f"営業所一覧_{customer_name}.xlsx"
 
     return send_file(
         BytesIO(excel_data),
