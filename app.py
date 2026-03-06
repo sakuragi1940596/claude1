@@ -297,13 +297,15 @@ def officers_save(app_id):
             continue
         last_name = request.form.get(f'last_name_{i}', '').strip()
         first_name = request.form.get(f'first_name_{i}', '').strip()
+        last_name_kana = request.form.get(f'last_name_kana_{i}', '').strip()
+        first_name_kana = request.form.get(f'first_name_kana_{i}', '').strip()
         role = request.form.get(f'role_{i}', '').strip()
         full_or_part = request.form.get(f'full_or_part_{i}', '').strip()
         if last_name or first_name:
             db.execute('''
-                INSERT INTO officers (application_id, last_name, first_name, role, full_or_part, sort_order)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (app_id, last_name, first_name, role, full_or_part, sort_order))
+                INSERT INTO officers (application_id, last_name, first_name, last_name_kana, first_name_kana, role, full_or_part, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (app_id, last_name, first_name, last_name_kana, first_name_kana, role, full_or_part, sort_order))
             sort_order += 1
     db.commit()
     db.close()
