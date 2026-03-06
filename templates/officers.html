@@ -12,19 +12,23 @@
     <table class="table">
         <thead>
             <tr>
-                <th style="width:5%">No.</th>
-                <th style="width:20%">氏（姓）</th>
-                <th style="width:20%">名</th>
-                <th style="width:25%">役名等</th>
-                <th style="width:20%">常勤・非常勤の別</th>
-                <th style="width:10%">削除</th>
+                <th style="width:4%">No.</th>
+                <th style="width:12%">姓（フリガナ）</th>
+                <th style="width:12%">姓</th>
+                <th style="width:12%">名（フリガナ）</th>
+                <th style="width:12%">名</th>
+                <th style="width:20%">役名等</th>
+                <th style="width:16%">常勤・非常勤</th>
+                <th style="width:8%">削除</th>
             </tr>
         </thead>
         <tbody id="officers-tbody">
             {% for officer in officers %}
             <tr>
                 <td>{{ loop.index }}</td>
+                <td><input type="text" name="last_name_kana_{{ loop.index0 }}" value="{{ officer['last_name_kana'] or '' }}" class="form-control" placeholder="セイ"></td>
                 <td><input type="text" name="last_name_{{ loop.index0 }}" value="{{ officer['last_name'] or '' }}" class="form-control"></td>
+                <td><input type="text" name="first_name_kana_{{ loop.index0 }}" value="{{ officer['first_name_kana'] or '' }}" class="form-control" placeholder="メイ"></td>
                 <td><input type="text" name="first_name_{{ loop.index0 }}" value="{{ officer['first_name'] or '' }}" class="form-control"></td>
                 <td>
                     <select name="role_{{ loop.index0 }}" class="form-control">
@@ -56,7 +60,9 @@
             {% for i in range(officers|length, officers|length + 3) %}
             <tr>
                 <td>{{ i + 1 }}</td>
+                <td><input type="text" name="last_name_kana_{{ i }}" value="" class="form-control" placeholder="セイ"></td>
                 <td><input type="text" name="last_name_{{ i }}" value="" class="form-control"></td>
+                <td><input type="text" name="first_name_kana_{{ i }}" value="" class="form-control" placeholder="メイ"></td>
                 <td><input type="text" name="first_name_{{ i }}" value="" class="form-control"></td>
                 <td>
                     <select name="role_{{ i }}" class="form-control">
