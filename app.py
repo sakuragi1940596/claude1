@@ -324,7 +324,7 @@ def officers_export(app_id):
 
     excel_data = generate_officers_excel(
         [dict(o) for o in officers],
-        application.get('application_date')
+        application['application_date']
     )
     customer_name = customer['name'] or '役員一覧'
     filename = f"役員一覧表_{customer_name}.xlsx"
