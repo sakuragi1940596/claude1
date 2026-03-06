@@ -16,10 +16,14 @@
                 <input type="text" name="name_kana" value="{{ customer['name_kana'] if customer else '' }}">
             </div>
         </div>
-        <div class="form-row">
+              <div class="form-row">
             <div class="form-group">
                 <label>代表者氏名</label>
                 <input type="text" name="representative" value="{{ customer['representative'] if customer else '' }}">
+            </div>
+            <div class="form-group">
+                <label>代表者肩書</label>
+                <input type="text" name="representative_title" value="{{ customer['representative_title'] if customer else '' }}" placeholder="代表取締役">
             </div>
             <div class="form-group">
                 <label>代表者フリガナ</label>
