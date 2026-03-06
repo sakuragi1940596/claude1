@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ customer['name'] }} - 役員等の一覧表</h2>
+    <div>
+        <a href="{{ url_for('officers_export', app_id=application['id']) }}" class="btn btn-success">Excel出力</a>
+        <a href="{{ url_for('application_list', customer_id=customer['id']) }}" class="btn">申請書一覧に戻る</a>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('officers_save', app_id=application['id']) }}">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:5%">No.</th>
+                <th style="width:20%">氏（姓）</th>
+                <th style="width:20%">名</th>
+                <th style="width:25%">役名等</th>
+                <th style="width:20%">常勤・非常勤の別</th>
+                <th style="width:10%">削除</th>
+            </tr>
+        </thead>
+        <tbody id="officers-tbody">
+            {% for officer in officers %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><input type="text" name="last_name_{{ loop.index0 }}" value="{{ officer['last_name'] or '' }}" class="form-control"></td>
+                <td><input type="text" name="first_name_{{ loop.index0 }}" value="{{ officer['first_name'] or '' }}" class="form-control"></td>
+                <td>
+                    <select name="role_{{ loop.index0 }}" class="form-control">
+                        <option value="">選択してください</option>
+                        <option value="代表取締役" {% if officer['role'] == '代表取締役' %}selected{% endif %}>代表取締役</option>
+                        <option value="取締役" {% if officer['role'] == '取締役' %}selected{% endif %}>取締役</option>
+                        <option value="監査役" {% if officer['role'] == '監査役' %}selected{% endif %}>監査役</option>
+                        <option value="会計参与" {% if officer['role'] == '会計参与' %}selected{% endif %}>会計参与</option>
+                        <option value="社員" {% if officer['role'] == '社員' %}selected{% endif %}>社員</option>
+                        <option value="代表社員" {% if officer['role'] == '代表社員' %}selected{% endif %}>代表社員</option>
+                        <option value="理事" {% if officer['role'] == '理事' %}selected{% endif %}>理事</option>
+                        <option value="代表理事" {% if officer['role'] == '代表理事' %}selected{% endif %}>代表理事</option>
+                        <option value="監事" {% if officer['role'] == '監事' %}selected{% endif %}>監事</option>
+                        <option value="顧問" {% if officer['role'] == '顧問' %}selected{% endif %}>顧問</option>
+                        <option value="相談役" {% if officer['role'] == '相談役' %}selected{% endif %}>相談役</option>
+                        <option value="株主等" {% if officer['role'] == '株主等' %}selected{% endif %}>株主等</option>
+                    </select>
+                </td>
+                <td>
+                    <select name="full_or_part_{{ loop.index0 }}" class="form-control">
+                        <option value="">選択してください</option>
+                        <option value="常勤" {% if officer['full_or_part'] == '常勤' %}selected{% endif %}>常勤</option>
+                        <option value="非常勤" {% if officer['full_or_part'] == '非常勤' %}selected{% endif %}>非常勤</option>
+                    </select>
+                </td>
+                <td><label><input type="checkbox" name="delete_{{ loop.index0 }}" value="1"> 削除</label></td>
+            </tr>
+            {% endfor %}
+            {% for i in range(officers|length, officers|length + 3) %}
+            <tr>
+                <td>{{ i + 1 }}</td>
+                <td><input type="text" name="last_name_{{ i }}" value="" class="form-control"></td>
+                <td><input type="text" name="first_name_{{ i }}" value="" class="form-control"></td>
+                <td>
+                    <select name="role_{{ i }}" class="form-control">
+                        <option value="">選択してください</option>
+                        <option value="代表取締役">代表取締役</option>
+                        <option value="取締役">取締役</option>
+                        <option value="監査役">監査役</option>
+                        <option value="会計参与">会計参与</option>
+                        <option value="社員">社員</option>
+                        <option value="代表社員">代表社員</option>
+                        <option value="理事">理事</option>
+                        <option value="代表理事">代表理事</option>
+                        <option value="監事">監事</option>
+                        <option value="顧問">顧問</option>
+                        <option value="相談役">相談役</option>
+                        <option value="株主等">株主等</option>
+                    </select>
+                </td>
+                <td>
+                    <select name="full_or_part_{{ i }}" class="form-control">
+                        <option value="">選択してください</option>
+                        <option value="常勤">常勤</option>
+                        <option value="非常勤">非常勤</option>
+                    </select>
+                </td>
+                <td></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <input type="hidden" name="total_rows" value="{{ officers|length + 3 }}">
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">保存</button>
+    </div>
+</form>
+{% endblock %}
