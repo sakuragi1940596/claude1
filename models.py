@@ -74,6 +74,8 @@ def init_db():
             application_id INTEGER NOT NULL,
             last_name TEXT,
             first_name TEXT,
+            last_name_kana TEXT,
+            first_name_kana TEXT,
             role TEXT,
             full_or_part TEXT,
             sort_order INTEGER DEFAULT 0,
