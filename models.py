@@ -70,6 +70,25 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers(id)
         );
+        CREATE TABLE IF NOT EXISTS offices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            application_id INTEGER NOT NULL,
+            office_type INTEGER DEFAULT 2,
+            name TEXT,
+            name_kana TEXT,
+            city_code TEXT,
+            prefecture TEXT,
+            city TEXT,
+            address TEXT,
+            postal_code TEXT,
+            phone TEXT,
+            business_types TEXT,
+            general_or_specific INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (application_id) REFERENCES applications(id)
+        );
+
         CREATE TABLE IF NOT EXISTS officers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             application_id INTEGER NOT NULL,
