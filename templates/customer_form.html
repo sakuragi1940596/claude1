@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ '顧客編集' if customer else '新規顧客登録' }}</h2>
+</div>
+<form method="POST" class="form">
+    <fieldset>
+        <legend>基本情報</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>商号又は名称 <span class="required">*</span></label>
+                <input type="text" name="name" value="{{ customer['name'] if customer else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label>フリガナ</label>
+                <input type="text" name="name_kana" value="{{ customer['name_kana'] if customer else '' }}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>代表者氏名</label>
+                <input type="text" name="representative" value="{{ customer['representative'] if customer else '' }}">
+            </div>
+            <div class="form-group">
+                <label>代表者フリガナ</label>
+                <input type="text" name="representative_kana" value="{{ customer['representative_kana'] if customer else '' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>法人情報</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>法人又は個人の別</label>
+                <select name="corporation_type">
+                    <option value="1" {{ 'selected' if customer and customer['corporation_type'] == 1 }}>1. 法人</option>
+                    <option value="2" {{ 'selected' if customer and customer['corporation_type'] == 2 }}>2. 個人</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>資本金額（千円）</label>
+                <input type="text" name="capital_amount" value="{{ customer['capital_amount'] if customer else '' }}">
+            </div>
+            <div class="form-group">
+                <label>法人番号</label>
+                <input type="text" name="corporate_number" value="{{ customer['corporate_number'] if customer else '' }}" maxlength="13">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>所在地・連絡先</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>郵便番号</label>
+                <input type="text" name="postal_code" value="{{ customer['postal_code'] if customer else '' }}" placeholder="000-0000">
+            </div>
+            <div class="form-group">
+                <label>都道府県</label>
+                <input type="text" name="prefecture" value="{{ customer['prefecture'] if customer else '' }}">
+            </div>
+            <div class="form-group">
+                <label>市区町村</label>
+                <input type="text" name="city" value="{{ customer['city'] if customer else '' }}">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>住所（番地以降）</label>
+            <input type="text" name="address" value="{{ customer['address'] if customer else '' }}">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>電話番号</label>
+                <input type="text" name="phone" value="{{ customer['phone'] if customer else '' }}">
+            </div>
+            <div class="form-group">
+                <label>FAX番号</label>
+                <input type="text" name="fax" value="{{ customer['fax'] if customer else '' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ '更新' if customer else '登録' }}</button>
+        <a href="{{ url_for('customer_list') }}" class="btn">キャンセル</a>
+    </div>
+</form>
+{% endblock %}
