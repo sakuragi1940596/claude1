@@ -1,311 +1,342 @@
-import os
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from models import get_db, init_db
+from excel_export import generate_excel, generate_officers_excel, BUSINESS_TYPES
 from io import BytesIO
-from openpyxl import load_workbook
+import os
 
-TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '許可申請書.xlsx')
-
-# 建設業29業種コード
-BUSINESS_TYPES = [
-    ('土', 'civil_engineering'),
-    ('建', 'architecture'),
-    ('大', 'carpentry'),
-    ('左', 'plastering'),
-    ('と', 'masonry'),
-    ('石', 'stone'),
-    ('屋', 'roofing'),
-    ('電', 'electrical'),
-    ('管', 'plumbing'),
-    ('タ', 'tiling'),
-    ('鋼', 'steel'),
-    ('筋', 'rebar'),
-    ('舗', 'paving'),
-    ('しゆ', 'dredging'),
-    ('板', 'sheet_metal'),
-    ('ガ', 'glass'),
-    ('塗', 'painting'),
-    ('防', 'waterproofing'),
-    ('内', 'interior'),
-    ('機', 'machinery'),
-    ('絶', 'insulation'),
-    ('通', 'telecom'),
-    ('園', 'landscaping'),
-    ('井', 'well'),
-    ('具', 'fixtures'),
-    ('水', 'water'),
-    ('消', 'fire_protection'),
-    ('清', 'cleaning'),
-    ('解', 'demolition'),
-]
-
-# 業種に対応するExcelセル列（結合セルの開始列）
-BUSINESS_TYPE_COLUMNS = [
-    'AR', 'AV', 'AZ', 'BD', 'BH', 'BL', 'BP', 'BT', 'BX', 'CB',
-    'CF', 'CJ', 'CN', 'CR', 'CV', 'CZ', 'DD', 'DH', 'DL', 'DP',
-    'DT', 'DX', 'EB', 'EF', 'EJ', 'EN', 'ER', 'EV', 'EZ',
-]
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
 
 
-def _fill_cells(ws, cells, text):
-    """文字列を1文字ずつ指定セルに書き込む"""
-    if not text:
-        return
-    for i, char in enumerate(text):
-        if i >= len(cells):
-            break
-        ws[cells[i]] = char
+@app.before_request
+def before_request():
+    init_db()
 
 
-def _fill_digits(ws, cells, number_str):
-    """数字文字列を右詰めで1桁ずつセルに書き込む"""
-    if not number_str:
-        return
-    digits = str(number_str).strip()
-    # 右詰め
-    start = len(cells) - len(digits)
-    for i, d in enumerate(digits):
-        pos = start + i
-        if 0 <= pos < len(cells):
-            ws[cells[pos]] = d
+# ===== トップページ =====
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 
-def generate_excel(application, customer):
-    """申請データからExcelファイルを生成してバイトデータを返す"""
-    wb = load_workbook(TEMPLATE_PATH)
-    ws = wb['様式第一号']
+# ===== 顧客管理 =====
+@app.route('/customers')
+def customer_list():
+    db = get_db()
+    customers = db.execute('SELECT * FROM customers ORDER BY updated_at DESC').fetchall()
+    db.close()
+    return render_template('customers.html', customers=customers)
 
-    # ============================================================
-    # 申請日（行9: 令和__年__月__日）→ 行政庁側記入欄のため空欄
-    # ============================================================
 
-    # ============================================================
-    # 項番01: 許可番号 → 空欄のままにする
-    # ============================================================
+@app.route('/customers/new', methods=['GET', 'POST'])
+def customer_new():
+    if request.method == 'POST':
+        db = get_db()
+        db.execute('''
+            INSERT INTO customers (name, name_kana, representative, representative_kana,
+                corporate_number, capital_amount, corporation_type,
+                postal_code, prefecture, city, address, phone, fax)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            request.form['name'],
+            request.form.get('name_kana', ''),
+            request.form.get('representative', ''),
+            request.form.get('representative_kana', ''),
+            request.form.get('corporate_number', ''),
+            request.form.get('capital_amount', ''),
+            request.form.get('corporation_type', 1),
+            request.form.get('postal_code', ''),
+            request.form.get('prefecture', ''),
+            request.form.get('city', ''),
+            request.form.get('address', ''),
+            request.form.get('phone', ''),
+            request.form.get('fax', ''),
+        ))
+        db.commit()
+        db.close()
+        flash('顧客を登録しました。', 'success')
+        return redirect(url_for('customer_list'))
+    return render_template('customer_form.html', customer=None)
 
-    # ============================================================
-    # 項番02: 申請の区分 → 空欄のままにする
-    # ============================================================
-    # 許可の有効期間の調整（1:する 2:しない）
-    if application.get('validity_adjustment'):
-        ws['FE25'] = str(application['validity_adjustment'])
 
-    # ============================================================
-    # 項番03: 申請年月日 → 空欄のままにする
-    # ============================================================
+@app.route('/customers/<int:customer_id>/edit', methods=['GET', 'POST'])
+def customer_edit(customer_id):
+    db = get_db()
+    if request.method == 'POST':
+        db.execute('''
+            UPDATE customers SET name=?, name_kana=?, representative=?, representative_kana=?,
+                corporate_number=?, capital_amount=?, corporation_type=?,
+                postal_code=?, prefecture=?, city=?, address=?, phone=?, fax=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        ''', (
+            request.form['name'],
+            request.form.get('name_kana', ''),
+            request.form.get('representative', ''),
+            request.form.get('representative_kana', ''),
+            request.form.get('corporate_number', ''),
+            request.form.get('capital_amount', ''),
+            request.form.get('corporation_type', 1),
+            request.form.get('postal_code', ''),
+            request.form.get('prefecture', ''),
+            request.form.get('city', ''),
+            request.form.get('address', ''),
+            request.form.get('phone', ''),
+            request.form.get('fax', ''),
+            customer_id,
+        ))
+        db.commit()
+        db.close()
+        flash('顧客情報を更新しました。', 'success')
+        return redirect(url_for('customer_list'))
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (customer_id,)).fetchone()
+    db.close()
+    return render_template('customer_form.html', customer=customer)
 
-    # ============================================================
-    # 項番04: 許可を受けようとする建設業（行34）
-    # ============================================================
-    if application.get('business_types'):
-        selected = application['business_types'].split(',')
-        for i, (label, code) in enumerate(BUSINESS_TYPES):
-            if code in selected:
-                col = BUSINESS_TYPE_COLUMNS[i]
-                ws[f'{col}34'] = '1'
 
-    # ============================================================
-    # 項番05: 既に許可を受けている建設業（行37）
-    # ============================================================
-    if application.get('existing_business_types'):
-        selected = application['existing_business_types'].split(',')
-        for i, (label, code) in enumerate(BUSINESS_TYPES):
-            if code in selected:
-                col = BUSINESS_TYPE_COLUMNS[i]
-                ws[f'{col}37'] = '1'
+@app.route('/customers/<int:customer_id>/delete', methods=['POST'])
+def customer_delete(customer_id):
+    db = get_db()
+    db.execute('DELETE FROM applications WHERE customer_id=?', (customer_id,))
+    db.execute('DELETE FROM customers WHERE id=?', (customer_id,))
+    db.commit()
+    db.close()
+    flash('顧客を削除しました。', 'success')
+    return redirect(url_for('customer_list'))
 
-    # ============================================================
-    # 項番06: 商号又は名称のフリガナ（行40, 20文字分）
-    # ============================================================
-    name_kana_cells = [
-        'AR40', 'AY40', 'BF40', 'BM40', 'BT40', 'CA40', 'CH40', 'CO40', 'CV40', 'DC40',
-        'DJ40', 'DQ40', 'DX40', 'EE40', 'EL40', 'ES40', 'EZ40', 'FG40', 'FN40', 'FU40',
-    ]
-    name_kana = customer.get('name_kana') or ''
-    if customer.get('corporation_type') and int(customer['corporation_type']) == 1:
-        # 法人の場合、法人格のフリガナを除去
-        corp_kana_list = [
-            'カブシキガイシャ', 'ユウゲンガイシャ', 'ゴウドウガイシャ', 'ゴウシガイシャ',
-            'ゴウメイガイシャ', 'イッパンシャダンホウジン', 'イッパンザイダンホウジン',
-            'コウエキシャダンホウジン', 'コウエキザイダンホウジン',
-            'トクテイヒエイリカツドウホウジン', 'シャカイフクシホウジン',
-            'ガッコウホウジン', 'イリョウホウジン',
-        ]
-        for corp_kana in corp_kana_list:
-            name_kana = name_kana.replace(corp_kana, '').strip()
-    _fill_cells(ws, name_kana_cells, name_kana)
 
-    # ============================================================
-    # 項番07: 商号又は名称（行46, 20文字分）
-    # ============================================================
-    name_cells = [
-        'AR46', 'AY46', 'BF46', 'BM46', 'BT46', 'CA46', 'CH46', 'CO46', 'CV46', 'DC46',
-        'DJ46', 'DQ46', 'DX46', 'EE46', 'EL46', 'ES46', 'EZ46', 'FG46', 'FN46', 'FU46',
-    ]
-    name = customer.get('name') or ''
-    if customer.get('corporation_type') and int(customer['corporation_type']) == 1:
-        # 法人格を略称に置換
-        corp_replacements = [
-            ('株式会社', '（株）'),
-            ('有限会社', '（有）'),
-            ('合同会社', '（合）'),
-            ('合資会社', '（資）'),
-            ('合名会社', '（名）'),
-            ('一般社団法人', '（一社）'),
-            ('一般財団法人', '（一財）'),
-            ('公益社団法人', '（公社）'),
-            ('公益財団法人', '（公財）'),
-            ('特定非営利活動法人', '（特非）'),
-            ('社会福祉法人', '（福）'),
-            ('学校法人', '（学）'),
-            ('医療法人', '（医）'),
-        ]
-        for full, short in corp_replacements:
-            name = name.replace(full, short)
-    _fill_cells(ws, name_cells, name)
+# ===== 申請書管理 =====
+@app.route('/customers/<int:customer_id>/applications')
+def application_list(customer_id):
+    db = get_db()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (customer_id,)).fetchone()
+    applications = db.execute(
+        'SELECT * FROM applications WHERE customer_id=? ORDER BY updated_at DESC',
+        (customer_id,)
+    ).fetchall()
+    db.close()
+    return render_template('applications.html', customer=customer, applications=applications)
 
-    # ============================================================
-    # 項番08: 代表者又は個人の氏名のフリガナ（行52, 20文字分）
-    # ============================================================
-    rep_kana_cells = [
-        'AR52', 'AY52', 'BF52', 'BM52', 'BT52', 'CA52', 'CH52', 'CO52', 'CV52', 'DC52',
-        'DJ52', 'DQ52', 'DX52', 'EE52', 'EL52', 'ES52', 'EZ52', 'FG52', 'FN52', 'FU52',
-    ]
-    _fill_cells(ws, rep_kana_cells, customer.get('representative_kana'))
 
-    # ============================================================
-    # 項番09: 代表者又は個人の氏名（行55, 10文字分）
-    # ============================================================
-    rep_name_cells = [
-        'AR55', 'AY55', 'BF55', 'BM55', 'BT55', 'CA55', 'CH55', 'CO55', 'CV55', 'DC55',
-    ]
-    _fill_cells(ws, rep_name_cells, customer.get('representative'))
+@app.route('/customers/<int:customer_id>/applications/new', methods=['GET', 'POST'])
+def application_new(customer_id):
+    db = get_db()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (customer_id,)).fetchone()
+    if request.method == 'POST':
+        business_types = ','.join(request.form.getlist('business_types'))
+        existing_business_types = ','.join(request.form.getlist('existing_business_types'))
+        db.execute('''
+            INSERT INTO applications (customer_id, application_date, permit_type,
+                governor_or_minister, permit_category, permit_number,
+                permit_year, permit_month, permit_day,
+                general_or_specific, application_category, validity_adjustment,
+                side_business, side_business_type, permit_transfer_category,
+                old_permit_number, old_permit_year, old_permit_month, old_permit_day,
+                city_code, business_types, existing_business_types,
+                applicant_name, applicant_address, proxy_name, proxy_address,
+                contact_organization, contact_name, contact_phone, contact_fax)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            customer_id,
+            request.form.get('application_date', ''),
+            request.form.get('permit_type', ''),
+            request.form.get('governor_or_minister', 2),
+            request.form.get('permit_category', ''),
+            request.form.get('permit_number', ''),
+            request.form.get('permit_year', ''),
+            request.form.get('permit_month', ''),
+            request.form.get('permit_day', ''),
+            request.form.get('general_or_specific', 1),
+            request.form.get('application_category', 1),
+            request.form.get('validity_adjustment', 2),
+            request.form.get('side_business', 2),
+            request.form.get('side_business_type', ''),
+            request.form.get('permit_transfer_category', ''),
+            request.form.get('old_permit_number', ''),
+            request.form.get('old_permit_year', ''),
+            request.form.get('old_permit_month', ''),
+            request.form.get('old_permit_day', ''),
+            request.form.get('city_code', ''),
+            business_types,
+            existing_business_types,
+            request.form.get('applicant_name', ''),
+            request.form.get('applicant_address', ''),
+            request.form.get('proxy_name', ''),
+            request.form.get('proxy_address', ''),
+            request.form.get('contact_organization', ''),
+            request.form.get('contact_name', ''),
+            request.form.get('contact_phone', ''),
+            request.form.get('contact_fax', ''),
+        ))
+        db.commit()
+        db.close()
+        flash('申請書を保存しました。', 'success')
+        return redirect(url_for('application_list', customer_id=customer_id))
+    db.close()
+    return render_template('application_form.html', customer=customer, application=None,
+                           business_types=BUSINESS_TYPES)
 
-    # ============================================================
-    # 項番10: 市区町村コード（行58, 5桁: AR58,AV58,AZ58,BD58,BH58）
-    # ============================================================
-    city_code_cells = ['AR58', 'AV58', 'AZ58', 'BD58', 'BH58']
-    if application.get('city_code'):
-        _fill_digits(ws, city_code_cells, application['city_code'])
 
-    # 都道府県名（CF58 結合セル）
-    if customer.get('prefecture'):
-        ws['CF58'] = customer['prefecture']
+@app.route('/applications/<int:app_id>/edit', methods=['GET', 'POST'])
+def application_edit(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    if request.method == 'POST':
+        business_types = ','.join(request.form.getlist('business_types'))
+        existing_business_types = ','.join(request.form.getlist('existing_business_types'))
+        db.execute('''
+            UPDATE applications SET application_date=?, permit_type=?,
+                governor_or_minister=?, permit_category=?, permit_number=?,
+                permit_year=?, permit_month=?, permit_day=?,
+                general_or_specific=?, application_category=?, validity_adjustment=?,
+                side_business=?, side_business_type=?, permit_transfer_category=?,
+                old_permit_number=?, old_permit_year=?, old_permit_month=?, old_permit_day=?,
+                city_code=?, business_types=?, existing_business_types=?,
+                applicant_name=?, applicant_address=?, proxy_name=?, proxy_address=?,
+                contact_organization=?, contact_name=?, contact_phone=?, contact_fax=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+        ''', (
+            request.form.get('application_date', ''),
+            request.form.get('permit_type', ''),
+            request.form.get('governor_or_minister', 2),
+            request.form.get('permit_category', ''),
+            request.form.get('permit_number', ''),
+            request.form.get('permit_year', ''),
+            request.form.get('permit_month', ''),
+            request.form.get('permit_day', ''),
+            request.form.get('general_or_specific', 1),
+            request.form.get('application_category', 1),
+            request.form.get('validity_adjustment', 2),
+            request.form.get('side_business', 2),
+            request.form.get('side_business_type', ''),
+            request.form.get('permit_transfer_category', ''),
+            request.form.get('old_permit_number', ''),
+            request.form.get('old_permit_year', ''),
+            request.form.get('old_permit_month', ''),
+            request.form.get('old_permit_day', ''),
+            request.form.get('city_code', ''),
+            business_types,
+            existing_business_types,
+            request.form.get('applicant_name', ''),
+            request.form.get('applicant_address', ''),
+            request.form.get('proxy_name', ''),
+            request.form.get('proxy_address', ''),
+            request.form.get('contact_organization', ''),
+            request.form.get('contact_name', ''),
+            request.form.get('contact_phone', ''),
+            request.form.get('contact_fax', ''),
+            app_id,
+        ))
+        db.commit()
+        db.close()
+        flash('申請書を更新しました。', 'success')
+        return redirect(url_for('application_list', customer_id=application['customer_id']))
+    db.close()
+    return render_template('application_form.html', customer=customer, application=application,
+                           business_types=BUSINESS_TYPES)
 
-    # 市区町村名（EK58 結合セル）
-    if customer.get('city'):
-        ws['EK58'] = customer['city']
 
-    # ============================================================
-    # 項番11: 主たる営業所の所在地（行61, 20文字分）
-    # ============================================================
-    address_cells = [
-        'AR61', 'AY61', 'BF61', 'BM61', 'BT61', 'CA61', 'CH61', 'CO61', 'CV61', 'DC61',
-        'DJ61', 'DQ61', 'DX61', 'EE61', 'EL61', 'ES61', 'EZ61', 'FG61', 'FN61', 'FU61',
-    ]
-    _fill_cells(ws, address_cells, customer.get('address'))
+@app.route('/applications/<int:app_id>/delete', methods=['POST'])
+def application_delete(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer_id = application['customer_id']
+    db.execute('DELETE FROM applications WHERE id=?', (app_id,))
+    db.commit()
+    db.close()
+    flash('申請書を削除しました。', 'success')
+    return redirect(url_for('application_list', customer_id=customer_id))
 
-    # ============================================================
-    # 項番12: 郵便番号（3桁: AR67,AV67,AZ67 / 4桁: BH67,BL67,BP67,BT67）
-    # ============================================================
-    if customer.get('postal_code'):
-        postal = customer['postal_code'].replace('ー', '-').replace('－', '-').replace('-', '')
-        if len(postal) == 7:
-            _fill_cells(ws, ['AR67', 'AV67', 'AZ67'], postal[:3])
-            _fill_cells(ws, ['BH67', 'BL67', 'BP67', 'BT67'], postal[3:])
 
-    # 電話番号（DD67〜EZ67, 最大12文字）
-    phone_cells = [
-        'DD67', 'DH67', 'DL67', 'DP67', 'DT67', 'DX67',
-        'EB67', 'EF67', 'EJ67', 'EN67', 'ER67', 'EV67', 'EZ67',
-    ]
-    if customer.get('phone'):
-        _fill_cells(ws, phone_cells, customer['phone'])
+@app.route('/applications/<int:app_id>/export')
+def application_export(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    db.close()
 
-    # FAX番号（BQ70 結合セル）
-    if customer.get('fax'):
-        ws['BQ70'] = customer['fax']
-    else:
-        ws['BQ70'] = 'なし'
+    excel_data = generate_excel(dict(application), dict(customer))
+    customer_name = customer['name'] or '申請書'
+    filename = f"建設業許可申請書_{customer_name}.xlsx"
 
-    # ============================================================
-    # 項番13: 法人又は個人の別
-    # ============================================================
-    if customer.get('corporation_type'):
-        ws['AR75'] = str(customer['corporation_type'])
+    return send_file(
+        BytesIO(excel_data),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
 
-    # 資本金額（千円）（行75: BT75,BX75,CB75,CF75,CJ75,CN75,CR75,CV75,CZ75）
-    capital_cells = ['BT75', 'BX75', 'CB75', 'CF75', 'CJ75', 'CN75', 'CR75', 'CV75', 'CZ75']
-    if customer.get('capital_amount'):
-        _fill_digits(ws, capital_cells, customer['capital_amount'])
 
-    # 法人番号（13桁: DX75,EB75,EF75,EJ75,EN75,ER75,EV75,EZ75,FD75,FH75,FL75,FP75,FT75）
-    corp_number_cells = [
-        'DX75', 'EB75', 'EF75', 'EJ75', 'EN75', 'ER75', 'EV75',
-        'EZ75', 'FD75', 'FH75', 'FL75', 'FP75', 'FT75',
-    ]
-    if customer.get('corporate_number'):
-        _fill_cells(ws, corp_number_cells, customer['corporate_number'])
+# ===== 役員管理 =====
+@app.route('/applications/<int:app_id>/officers', methods=['GET'])
+def officers_list(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    officers = db.execute(
+        'SELECT * FROM officers WHERE application_id=? ORDER BY sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
+    return render_template('officers.html', customer=customer, application=application,
+                           officers=officers)
 
-    # ============================================================
-    # 項番14: 兼業の有無
-    # ============================================================
-    if application.get('side_business'):
-        ws['AR78'] = str(application['side_business'])
-        if int(application['side_business']) == 2:
-            ws['CG79'] = 'なし'
-        elif application.get('side_business_type'):
-            ws['CG79'] = application['side_business_type']
 
-    # ============================================================
-    # 項番15: 許可換えの区分
-    # ============================================================
-    if application.get('permit_transfer_category'):
-        ws['AL82'] = str(application['permit_transfer_category'])
+@app.route('/applications/<int:app_id>/officers/save', methods=['POST'])
+def officers_save(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    # 既存データを削除して再登録
+    db.execute('DELETE FROM officers WHERE application_id=?', (app_id,))
+    total_rows = int(request.form.get('total_rows', 0))
+    sort_order = 0
+    for i in range(total_rows):
+        if request.form.get(f'delete_{i}'):
+            continue
+        last_name = request.form.get(f'last_name_{i}', '').strip()
+        first_name = request.form.get(f'first_name_{i}', '').strip()
+        role = request.form.get(f'role_{i}', '').strip()
+        full_or_part = request.form.get(f'full_or_part_{i}', '').strip()
+        if last_name or first_name:
+            db.execute('''
+                INSERT INTO officers (application_id, last_name, first_name, role, full_or_part, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (app_id, last_name, first_name, role, full_or_part, sort_order))
+            sort_order += 1
+    db.commit()
+    db.close()
+    flash('役員情報を保存しました。', 'success')
+    return redirect(url_for('officers_list', app_id=app_id))
 
-    # ============================================================
-    # 項番16: 旧許可番号
-    # ============================================================
-    # 旧許可番号（6桁: CZ88,DD88,DH88,DL88,DP88,DT88）
-    old_permit_cells = ['CZ88', 'DD88', 'DH88', 'DL88', 'DP88', 'DT88']
-    if application.get('old_permit_number'):
-        _fill_digits(ws, old_permit_cells, application['old_permit_number'])
-    if application.get('old_permit_year'):
-        _fill_digits(ws, ['EL88', 'EP88'], application['old_permit_year'])
-    if application.get('old_permit_month'):
-        _fill_digits(ws, ['EW88', 'FA88'], application['old_permit_month'])
-    if application.get('old_permit_day'):
-        _fill_digits(ws, ['FH88', 'FL88'], application['old_permit_day'])
 
-    # ============================================================
-    # 申請者・代理人（行11-16）
-    # ============================================================
-    # 申請者住所（所在地）
-    if application.get('applicant_address'):
-        ws['DK11'] = application['applicant_address']
-    # 申請者氏名（法人名）
-    if application.get('applicant_name'):
-        ws['DK12'] = application['applicant_name']
-    # 代表者氏名（法人の場合）
-    if customer.get('corporation_type') and int(customer['corporation_type']) == 1:
-        if customer.get('representative'):
-            ws['DK13'] = customer['representative']
-    # 申請者代理人
-    if application.get('proxy_name'):
-        ws['DL16'] = application['proxy_name']
+@app.route('/applications/<int:app_id>/officers/export')
+def officers_export(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    officers = db.execute(
+        'SELECT * FROM officers WHERE application_id=? ORDER BY sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
 
-    # ============================================================
-    # 連絡先（行97-105）
-    # ============================================================
-    if application.get('contact_organization'):
-        ws['B97'] = application['contact_organization']
-    if application.get('contact_name'):
-        ws['AZ97'] = application['contact_name']
-    if application.get('contact_phone'):
-        ws['B101'] = application['contact_phone']
-    if application.get('contact_fax'):
-        ws['B105'] = application['contact_fax']
+    excel_data = generate_officers_excel(
+        [dict(o) for o in officers],
+        application.get('application_date')
+    )
+    customer_name = customer['name'] or '役員一覧'
+    filename = f"役員一覧表_{customer_name}.xlsx"
 
-    # バイトデータとして返す
-    output = BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return output.getvalue()
+    return send_file(
+        BytesIO(excel_data),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+if __name__ == '__main__':
+    init_db()
+    app.run(host='0.0.0.0', port=5000, debug=True)
