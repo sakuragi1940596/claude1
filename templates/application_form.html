@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ customer['name'] }} - {{ '申請書編集' if application else '新規申請書作成' }}</h2>
+</div>
+<form method="POST" class="form">
+    <fieldset>
+        <legend>許可番号（項番01）</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>大臣／知事</label>
+                <select name="governor_or_minister">
+                    <option value="1" {{ 'selected' if application and application['governor_or_minister']|string == '1' }}>国土交通大臣</option>
+                    <option value="2" {{ 'selected' if not application or application['governor_or_minister']|string == '2' }}>知事</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>般／特</label>
+                <select name="general_or_specific">
+                    <option value="1" {{ 'selected' if not application or application['general_or_specific']|string == '1' }}>般（一般）</option>
+                    <option value="2" {{ 'selected' if application and application['general_or_specific']|string == '2' }}>特（特定）</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>許可番号</label>
+                <input type="text" name="permit_number" value="{{ application['permit_number'] if application else '' }}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>許可年（令和）</label>
+                <input type="text" name="permit_year" value="{{ application['permit_year'] if application else '' }}" placeholder="例: 5">
+            </div>
+            <div class="form-group">
+                <label>許可月</label>
+                <input type="text" name="permit_month" value="{{ application['permit_month'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>許可日</label>
+                <input type="text" name="permit_day" value="{{ application['permit_day'] if application else '' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>申請の区分（項番02）</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>申請区分</label>
+                <select name="application_category">
+                    <option value="1" {{ 'selected' if application and application['application_category']|string == '1' }}>1. 新規</option>
+                    <option value="2" {{ 'selected' if application and application['application_category']|string == '2' }}>2. 許可換え新規</option>
+                    <option value="3" {{ 'selected' if application and application['application_category']|string == '3' }}>3. 般・特新規</option>
+                    <option value="4" {{ 'selected' if application and application['application_category']|string == '4' }}>4. 業種追加</option>
+                    <option value="5" {{ 'selected' if application and application['application_category']|string == '5' }}>5. 更新</option>
+                    <option value="6" {{ 'selected' if application and application['application_category']|string == '6' }}>6. 般・特新規＋業種追加</option>
+                    <option value="7" {{ 'selected' if application and application['application_category']|string == '7' }}>7. 般・特新規＋更新</option>
+                    <option value="8" {{ 'selected' if application and application['application_category']|string == '8' }}>8. 業種追加＋更新</option>
+                    <option value="9" {{ 'selected' if application and application['application_category']|string == '9' }}>9. 般・特新規＋業種追加＋更新</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>許可の有効期間の調整</label>
+                <select name="validity_adjustment">
+                    <option value="1" {{ 'selected' if application and application['validity_adjustment']|string == '1' }}>1. する</option>
+                    <option value="2" {{ 'selected' if not application or application['validity_adjustment']|string == '2' }}>2. しない</option>
+                </select>
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>申請年月日（項番03）</legend>
+        <div class="form-group">
+            <label>申請日</label>
+            <input type="date" name="application_date" value="{{ application['application_date'] if application else '' }}">
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>許可を受けようとする建設業（項番04）</legend>
+        <div class="checkbox-grid">
+            {% set selected_types = (application['business_types'] or '').split(',') if application else [] %}
+            {% for label, code in business_types %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="business_types" value="{{ code }}"
+                       {{ 'checked' if code in selected_types }}>
+                {{ label }}
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>既に許可を受けている建設業（項番05）</legend>
+        <div class="checkbox-grid">
+            {% set existing_types = (application['existing_business_types'] or '').split(',') if application else [] %}
+            {% for label, code in business_types %}
+            <label class="checkbox-label">
+                <input type="checkbox" name="existing_business_types" value="{{ code }}"
+                       {{ 'checked' if code in existing_types }}>
+                {{ label }}
+            </label>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>営業所情報（項番10〜12）</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>市区町村コード</label>
+                <input type="text" name="city_code" value="{{ application['city_code'] if application else '' }}" maxlength="5">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>法人情報（項番13〜14）</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>兼業の有無</label>
+                <select name="side_business">
+                    <option value="1" {{ 'selected' if application and application['side_business']|string == '1' }}>1. 有</option>
+                    <option value="2" {{ 'selected' if not application or application['side_business']|string == '2' }}>2. 無</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>兼業の種類</label>
+                <input type="text" name="side_business_type" value="{{ application['side_business_type'] if application else '' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>許可換え（項番15〜16）</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>許可換えの区分</label>
+                <select name="permit_transfer_category">
+                    <option value="">該当なし</option>
+                    <option value="1" {{ 'selected' if application and application['permit_transfer_category']|string == '1' }}>1. 大臣許可→知事許可</option>
+                    <option value="2" {{ 'selected' if application and application['permit_transfer_category']|string == '2' }}>2. 知事許可→大臣許可</option>
+                    <option value="3" {{ 'selected' if application and application['permit_transfer_category']|string == '3' }}>3. 知事許可→他の知事許可</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>旧許可番号</label>
+                <input type="text" name="old_permit_number" value="{{ application['old_permit_number'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>旧許可年（令和）</label>
+                <input type="text" name="old_permit_year" value="{{ application['old_permit_year'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>旧許可月</label>
+                <input type="text" name="old_permit_month" value="{{ application['old_permit_month'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>旧許可日</label>
+                <input type="text" name="old_permit_day" value="{{ application['old_permit_day'] if application else '' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>申請者・代理人</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>申請者名</label>
+                <input type="text" name="applicant_name" value="{{ application['applicant_name'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>申請者住所</label>
+                <input type="text" name="applicant_address" value="{{ application['applicant_address'] if application else '' }}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>代理人名</label>
+                <input type="text" name="proxy_name" value="{{ application['proxy_name'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>代理人住所</label>
+                <input type="text" name="proxy_address" value="{{ application['proxy_address'] if application else '' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>連絡先</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label>所属等</label>
+                <input type="text" name="contact_organization" value="{{ application['contact_organization'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>氏名</label>
+                <input type="text" name="contact_name" value="{{ application['contact_name'] if application else '' }}">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>電話番号</label>
+                <input type="text" name="contact_phone" value="{{ application['contact_phone'] if application else '' }}">
+            </div>
+            <div class="form-group">
+                <label>FAX番号</label>
+                <input type="text" name="contact_fax" value="{{ application['contact_fax'] if application else '' }}">
+            </div>
+        </div>
+    </fieldset>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ '更新' if application else '保存' }}</button>
+        <a href="{{ url_for('application_list', customer_id=customer['id']) }}" class="btn">キャンセル</a>
+    </div>
+</form>
+{% endblock %}
