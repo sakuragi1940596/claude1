@@ -106,7 +106,7 @@ def generate_excel(application, customer):
 
     # 許可の有効期間の調整（1:する 2:しない）
     if application.get('validity_adjustment'):
-        ws['FJ25'] = str(application['validity_adjustment'])
+        ws['FE25'] = str(application['validity_adjustment'])
 
     # ============================================================
     # 項番03: 申請年月日（年2桁: AY28,BC28 / 月2桁: BJ28,BN28 / 日2桁: BU28,BY28）
