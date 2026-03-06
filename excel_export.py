@@ -87,47 +87,17 @@ def generate_excel(application, customer):
             ws['FU9'] = str(int(parts[2]))
 
     # ============================================================
-    # 項番01: 許可番号
+    # 項番01:入力不要
     # ============================================================
-    # 般/特
-    if application.get('general_or_specific'):
-        gs = int(application['general_or_specific'])
-        ws['CH21'] = '般' if gs == 1 else '特'
-
-    # 許可番号（6桁: CZ21, DD21, DH21, DL21, DP21, DT21）
-    permit_number_cells = ['CZ21', 'DD21', 'DH21', 'DL21', 'DP21', 'DT21']
-    if application.get('permit_number'):
-        _fill_digits(ws, permit_number_cells, application['permit_number'])
-
-    # 許可年月日（年2桁: EL21,EP21 / 月2桁: EW21,FA21 / 日2桁: FH21,FL21）
-    if application.get('permit_year'):
-        _fill_digits(ws, ['EL21', 'EP21'], application['permit_year'])
-    if application.get('permit_month'):
-        _fill_digits(ws, ['EW21', 'FA21'], application['permit_month'])
-    if application.get('permit_day'):
-        _fill_digits(ws, ['FH21', 'FL21'], application['permit_day'])
 
     # ============================================================
-    # 項番02: 申請の区分
+    # 項番02:入力不要
     # ============================================================
-    if application.get('application_category'):
-        ws['AL25'] = str(application['application_category'])
-
-    # 許可の有効期間の調整（1:する 2:しない）
-    if application.get('validity_adjustment'):
-        ws['FE25'] = str(application['validity_adjustment'])
 
     # ============================================================
-    # 項番03: 申請年月日（年2桁: AY28,BC28 / 月2桁: BJ28,BN28 / 日2桁: BU28,BY28）
+    # 項番03:入力不要
     # ============================================================
-    if application.get('application_date'):
-        parts = application['application_date'].split('-')
-        if len(parts) == 3:
-            year = int(parts[0]) - 2018
-            _fill_digits(ws, ['AY28', 'BC28'], str(year))
-            _fill_digits(ws, ['BJ28', 'BN28'], str(int(parts[1])))
-            _fill_digits(ws, ['BU28', 'BY28'], str(int(parts[2])))
-
+  
     # ============================================================
     # 項番04: 許可を受けようとする建設業（行34）
     # ============================================================
