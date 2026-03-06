@@ -234,10 +234,11 @@ def generate_excel(application, customer):
     # 項番12: 郵便番号（3桁: AR67,AV67,AZ67 / 4桁: BH67,BL67,BP67,BT67）
     # ============================================================
     if customer.get('postal_code'):
-        parts = customer['postal_code'].replace('ー', '-').replace('－', '-').split('-')
-        if len(parts) == 2:
-            _fill_cells(ws, ['AR67', 'AV67', 'AZ67'], parts[0])
-            _fill_cells(ws, ['BH67', 'BL67', 'BP67', 'BT67'], parts[1])
+        postal = customer['postal_code'].replace('ー', '-').replace('－', '-').replace('-', '')
+        if len(postal) == 7:
+            _fill_cells(ws, ['AR67', 'AV67', 'AZ67'], postal[:3])
+            _fill_cells(ws, ['BH67', 'BL67', 'BP67', 'BT67'], postal[3:])
+
 
     # 電話番号（DD67〜EZ67, 最大12文字）
     phone_cells = [
