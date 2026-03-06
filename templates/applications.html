@@ -30,6 +30,7 @@
             <td>{{ a['permit_number'] or '' }}</td>
             <td class="actions">
                 <a href="{{ url_for('application_export', app_id=a['id']) }}" class="btn btn-sm btn-success">Excel出力</a>
+                <a href="{{ url_for('officers_list', app_id=a['id']) }}" class="btn btn-sm">役員一覧</a>
                 <a href="{{ url_for('application_edit', app_id=a['id']) }}" class="btn btn-sm">編集</a>
                 <form method="POST" action="{{ url_for('application_delete', app_id=a['id']) }}" class="inline-form"
                       onsubmit="return confirm('この申請書を削除しますか？')">
