@@ -394,7 +394,7 @@ def generate_offices_list_excel(application, customer, offices):
         {   # 従たる営業所1
             'kana_cell': 'BD33', 'name_row1': 36, 'name_row2': 39,
             'city_code_cells': ['AS43', 'AW43', 'BA43', 'BE43', 'BI43'],
-            'prefecture_cell': 'BP43', 'city_cell': 'DT43',
+            'prefecture_cell': 'CH43', 'city_cell': 'EO43',
             'addr_row1': 46, 'addr_row2': 49,
             'postal_first': ['AS52', 'AW52', 'BA52'],
             'postal_last': ['BI52', 'BM52', 'BQ52', 'BU52'],
@@ -407,7 +407,7 @@ def generate_offices_list_excel(application, customer, offices):
         {   # 従たる営業所2
             'kana_cell': 'BD64', 'name_row1': 67, 'name_row2': 70,
             'city_code_cells': ['AS74', 'AW74', 'BA74', 'BE74', 'BI74'],
-            'prefecture_cell': 'BP74', 'city_cell': 'DT74',
+            'prefecture_cell': 'CH74', 'city_cell': 'EO74',
             'addr_row1': 77, 'addr_row2': 80,
             'postal_first': ['AS83', 'AW83', 'BA83'],
             'postal_last': ['BI83', 'BM83', 'BQ83', 'BU83'],
