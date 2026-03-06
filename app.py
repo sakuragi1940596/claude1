@@ -33,10 +33,10 @@ def customer_new():
     if request.method == 'POST':
         db = get_db()
         db.execute('''
-            INSERT INTO customers (name, name_kana, representative, representative_kana,
+            INSERT INTO customers (name, name_kana, representative, representative_title, representative_kana,
                 corporate_number, capital_amount, corporation_type,
                 postal_code, prefecture, city, address, phone, fax)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             request.form['name'],
             request.form.get('name_kana', ''),
