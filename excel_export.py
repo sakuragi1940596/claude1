@@ -364,22 +364,19 @@ def generate_offices_list_excel(application, customer, offices):
     # ============================================================
     # 主たる営業所（行18-29）
     # ============================================================
-    # フリガナ（BE19 結合セル）
-    main_name_kana = customer.get('name_kana', '') or ''
-    if main_name_kana:
-        ws['BE19'] = main_name_kana
-
-    # 名称（BE21 結合セル）
-    main_name = customer.get('name', '') or ''
-    if main_name:
-        ws['BE21'] = main_name
-
-    # 主たる営業所の営業しようとする建設業（行25-26）
     main_office = None
     for o in offices:
         if o.get('office_type') == 1:
             main_office = o
             break
+
+    # フリガナ（BE19 結合セル）
+    main_name_kana = (main_office.get('name_kana', '') if main_office else '') or 'ホンテン'
+    ws['BE19'] = main_name_kana
+
+    # 名称（BE21 結合セル）
+    main_name = (main_office.get('name', '') if main_office else '') or '本店'
+    ws['BE21'] = main_name
 
     if main_office and main_office.get('business_types'):
         selected = main_office['business_types'].split(',')

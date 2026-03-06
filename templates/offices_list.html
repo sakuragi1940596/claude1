@@ -11,12 +11,21 @@
 <form method="POST" action="{{ url_for('offices_save', app_id=application['id']) }}">
     <!-- 主たる営業所 -->
     <h3>主たる営業所</h3>
-    <p>名称・所在地等は顧客情報から自動反映されます。営業しようとする建設業を選択してください。</p>
     <input type="hidden" name="office_type_0" value="1">
     {% set main_office = None %}
     {% for o in offices if o['office_type'] == 1 %}
         {% set main_office = o %}
     {% endfor %}
+    <div class="form-row">
+        <div class="form-group half">
+            <label>名称（フリガナ）</label>
+            <input type="text" name="name_kana_0" value="{{ main_office['name_kana'] if main_office and main_office['name_kana'] else 'ホンテン' }}" class="form-control">
+        </div>
+        <div class="form-group half">
+            <label>名称</label>
+            <input type="text" name="name_0" value="{{ main_office['name'] if main_office and main_office['name'] else '本店' }}" class="form-control">
+        </div>
+    </div>
     <div class="form-group">
         <label>営業しようとする建設業</label>
         <div class="business-types-grid">

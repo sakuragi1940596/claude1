@@ -370,14 +370,15 @@ def offices_save(app_id):
         name_kana = request.form.get(f'name_kana_{i}', '').strip()
         business_types = ','.join(request.form.getlist(f'business_types_{i}'))
 
-        # 主たる営業所は業種のみ、従たる営業所はフル入力
+        # 主たる営業所は名称・業種、従たる営業所はフル入力
         if office_type == 1:
-            if business_types:
-                db.execute('''
-                    INSERT INTO offices (application_id, office_type, name, name_kana,
-                        business_types, sort_order)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (app_id, 1, '', '', business_types, 0))
+            main_name = name if name else '本店'
+            main_name_kana = name_kana if name_kana else 'ホンテン'
+            db.execute('''
+                INSERT INTO offices (application_id, office_type, name, name_kana,
+                    business_types, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (app_id, 1, main_name, main_name_kana, business_types, 0))
         else:
             city_code = request.form.get(f'city_code_{i}', '').strip()
             prefecture = request.form.get(f'prefecture_{i}', '').strip()
