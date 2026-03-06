@@ -41,6 +41,7 @@ def customer_new():
             request.form['name'],
             request.form.get('name_kana', ''),
             request.form.get('representative', ''),
+            request.form.get('representative_title', ''),
             request.form.get('representative_kana', ''),
             request.form.get('corporate_number', ''),
             request.form.get('capital_amount', ''),
