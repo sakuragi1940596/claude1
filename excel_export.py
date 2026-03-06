@@ -1,5 +1,5 @@
-import copy
 import os
+from io import BytesIO
 from openpyxl import load_workbook
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '許可申請書.xlsx')
@@ -37,12 +37,35 @@ BUSINESS_TYPES = [
     ('解', 'demolition'),
 ]
 
-# 業種に対応するExcelセル列（行33の列）
+# 業種に対応するExcelセル列（結合セルの開始列）
 BUSINESS_TYPE_COLUMNS = [
     'AR', 'AV', 'AZ', 'BD', 'BH', 'BL', 'BP', 'BT', 'BX', 'CB',
-    'CF', 'CJ', 'CN', 'CQ', 'CV', 'CZ', 'DD', 'DH', 'DL', 'DP',
+    'CF', 'CJ', 'CN', 'CR', 'CV', 'CZ', 'DD', 'DH', 'DL', 'DP',
     'DT', 'DX', 'EB', 'EF', 'EJ', 'EN', 'ER', 'EV', 'EZ',
 ]
+
+
+def _fill_cells(ws, cells, text):
+    """文字列を1文字ずつ指定セルに書き込む"""
+    if not text:
+        return
+    for i, char in enumerate(text):
+        if i >= len(cells):
+            break
+        ws[cells[i]] = char
+
+
+def _fill_digits(ws, cells, number_str):
+    """数字文字列を右詰めで1桁ずつセルに書き込む"""
+    if not number_str:
+        return
+    digits = str(number_str).strip()
+    # 右詰め
+    start = len(cells) - len(digits)
+    for i, d in enumerate(digits):
+        pos = start + i
+        if 0 <= pos < len(cells):
+            ws[cells[pos]] = d
 
 
 def generate_excel(application, customer):
@@ -50,162 +73,230 @@ def generate_excel(application, customer):
     wb = load_workbook(TEMPLATE_PATH)
     ws = wb['様式第一号']
 
-    # 申請日（結合セルの開始セルに書き込む）
-    if application['application_date']:
+    # ============================================================
+    # 申請日（行9: 令和__年__月__日）
+    # 年: EZ9（結合セル1つ）, 月: FJ9, 日: FU9
+    # ============================================================
+    if application.get('application_date'):
         parts = application['application_date'].split('-')
         if len(parts) == 3:
-            year = int(parts[0]) - 2018  # 西暦→令和変換
-            ws['EZ9'] = str(year)   # FC9はEZ9:FE9の結合内
-            ws['FJ9'] = str(int(parts[1]))  # FN9はFJ9:FP9の結合内
-            ws['FU9'] = str(int(parts[2]))  # FY9はFU9:FZ9の結合内
+            year = int(parts[0]) - 2018  # 西暦→令和
+            ws['EZ9'] = str(year)
+            ws['FJ9'] = str(int(parts[1]))
+            ws['FU9'] = str(int(parts[2]))
 
-    # 申請年月日（項番03）
-    if application['application_date']:
+    # ============================================================
+    # 項番01: 許可番号
+    # ============================================================
+    # 般/特
+    if application.get('general_or_specific'):
+        gs = int(application['general_or_specific'])
+        ws['CH21'] = '般' if gs == 1 else '特'
+
+    # 許可番号（6桁: CZ21, DD21, DH21, DL21, DP21, DT21）
+    permit_number_cells = ['CZ21', 'DD21', 'DH21', 'DL21', 'DP21', 'DT21']
+    if application.get('permit_number'):
+        _fill_digits(ws, permit_number_cells, application['permit_number'])
+
+    # 許可年月日（年2桁: EL21,EP21 / 月2桁: EW21,FA21 / 日2桁: FH21,FL21）
+    if application.get('permit_year'):
+        _fill_digits(ws, ['EL21', 'EP21'], application['permit_year'])
+    if application.get('permit_month'):
+        _fill_digits(ws, ['EW21', 'FA21'], application['permit_month'])
+    if application.get('permit_day'):
+        _fill_digits(ws, ['FH21', 'FL21'], application['permit_day'])
+
+    # ============================================================
+    # 項番02: 申請の区分
+    # ============================================================
+    if application.get('application_category'):
+        ws['AL25'] = str(application['application_category'])
+
+    # 許可の有効期間の調整（1:する 2:しない）
+    if application.get('validity_adjustment'):
+        ws['FJ25'] = str(application['validity_adjustment'])
+
+    # ============================================================
+    # 項番03: 申請年月日（年2桁: AY28,BC28 / 月2桁: BJ28,BN28 / 日2桁: BU28,BY28）
+    # ============================================================
+    if application.get('application_date'):
         parts = application['application_date'].split('-')
         if len(parts) == 3:
             year = int(parts[0]) - 2018
-            ws['AR28'] = f'令和　{year}'
-            ws['BF28'] = str(int(parts[1]))
-            ws['BQ28'] = str(int(parts[2]))
+            _fill_digits(ws, ['AY28', 'BC28'], str(year))
+            _fill_digits(ws, ['BJ28', 'BN28'], str(int(parts[1])))
+            _fill_digits(ws, ['BU28', 'BY28'], str(int(parts[2])))
 
-    # 許可番号（項番01）
-    if application['governor_or_minister'] == 2:
-        # 知事許可の場合
-        pass
-    # 般/特（項番01）
-    if application['general_or_specific'] == 1:
-        ws['CH21'] = '般'
-    else:
-        ws['CH21'] = '特'
-
-    # 許可番号
-    if application['permit_number']:
-        ws['CW21'] = f"第　{application['permit_number']}"
-
-    # 許可年月日
-    if application['permit_year']:
-        ws['EE21'] = f"令和　{application['permit_year']}"
-    if application['permit_month']:
-        ws['FD21'] = application['permit_month']
-    if application['permit_day']:
-        ws['FO21'] = application['permit_day']
-
-    # 申請の区分（項番02）
-    if application['application_category']:
-        ws['AL25'] = str(application['application_category'])
-
-    # 許可の有効期間の調整
-    if application['validity_adjustment']:
-        ws['FJ25'] = str(application['validity_adjustment'])
-
-    # 許可を受けようとする建設業（項番04）
-    if application['business_types']:
+    # ============================================================
+    # 項番04: 許可を受けようとする建設業（行34）
+    # ============================================================
+    if application.get('business_types'):
         selected = application['business_types'].split(',')
         for i, (label, code) in enumerate(BUSINESS_TYPES):
             if code in selected:
                 col = BUSINESS_TYPE_COLUMNS[i]
-                ws[f'{col}34'] = '1'  # 許可を受けようとする業種行
+                ws[f'{col}34'] = '1'
 
-    # 既に許可を受けている建設業（項番05）
-    if application['existing_business_types']:
+    # ============================================================
+    # 項番05: 既に許可を受けている建設業（行37）
+    # ============================================================
+    if application.get('existing_business_types'):
         selected = application['existing_business_types'].split(',')
         for i, (label, code) in enumerate(BUSINESS_TYPES):
             if code in selected:
                 col = BUSINESS_TYPE_COLUMNS[i]
                 ws[f'{col}37'] = '1'
 
-    # 商号又は名称のフリガナ（項番06）
-    if customer['name_kana']:
-        ws['AR40'] = customer['name_kana']
+    # ============================================================
+    # 項番06: 商号又は名称のフリガナ（行40, 20文字分）
+    # ============================================================
+    name_kana_cells = [
+        'AR40', 'AY40', 'BF40', 'BM40', 'BT40', 'CA40', 'CH40', 'CO40', 'CV40', 'DC40',
+        'DJ40', 'DQ40', 'DX40', 'EE40', 'EL40', 'ES40', 'EZ40', 'FG40', 'FN40', 'FU40',
+    ]
+    _fill_cells(ws, name_kana_cells, customer.get('name_kana'))
 
-    # 商号又は名称（項番07）
-    if customer['name']:
-        ws['AR46'] = customer['name']
+    # ============================================================
+    # 項番07: 商号又は名称（行46, 20文字分）
+    # ============================================================
+    name_cells = [
+        'AR46', 'AY46', 'BF46', 'BM46', 'BT46', 'CA46', 'CH46', 'CO46', 'CV46', 'DC46',
+        'DJ46', 'DQ46', 'DX46', 'EE46', 'EL46', 'ES46', 'EZ46', 'FG46', 'FN46', 'FU46',
+    ]
+    _fill_cells(ws, name_cells, customer.get('name'))
 
-    # 代表者氏名のフリガナ（項番08）
-    if customer['representative_kana']:
-        ws['AR52'] = customer['representative_kana']
+    # ============================================================
+    # 項番08: 代表者又は個人の氏名のフリガナ（行52, 20文字分）
+    # ============================================================
+    rep_kana_cells = [
+        'AR52', 'AY52', 'BF52', 'BM52', 'BT52', 'CA52', 'CH52', 'CO52', 'CV52', 'DC52',
+        'DJ52', 'DQ52', 'DX52', 'EE52', 'EL52', 'ES52', 'EZ52', 'FG52', 'FN52', 'FU52',
+    ]
+    _fill_cells(ws, rep_kana_cells, customer.get('representative_kana'))
 
-    # 代表者又は個人の氏名（項番09）
-    if customer['representative']:
-        ws['AR55'] = customer['representative']
+    # ============================================================
+    # 項番09: 代表者又は個人の氏名（行55, 10文字分）
+    # ============================================================
+    rep_name_cells = [
+        'AR55', 'AY55', 'BF55', 'BM55', 'BT55', 'CA55', 'CH55', 'CO55', 'CV55', 'DC55',
+    ]
+    _fill_cells(ws, rep_name_cells, customer.get('representative'))
 
-    # 主たる営業所の所在地 市区町村コード（項番10）
-    if application['city_code']:
-        ws['AR57'] = application['city_code']
+    # ============================================================
+    # 項番10: 市区町村コード（行58, 5桁: AR58,AV58,AZ58,BD58,BH58）
+    # ============================================================
+    city_code_cells = ['AR58', 'AV58', 'AZ58', 'BD58', 'BH58']
+    if application.get('city_code'):
+        _fill_digits(ws, city_code_cells, application['city_code'])
 
-    # 都道府県名
-    if customer['prefecture']:
-        ws['BN58'] = customer['prefecture']
+    # 都道府県名（CF58 結合セル）
+    if customer.get('prefecture'):
+        ws['CF58'] = customer['prefecture']
 
-    # 市区町村名
-    if customer['city']:
-        ws['DS58'] = customer['city']
+    # 市区町村名（EK58 結合セル）
+    if customer.get('city'):
+        ws['EK58'] = customer['city']
 
-    # 主たる営業所の所在地（項番11）
-    if customer['address']:
-        ws['AR61'] = customer['address']
+    # ============================================================
+    # 項番11: 主たる営業所の所在地（行61, 20文字分）
+    # ============================================================
+    address_cells = [
+        'AR61', 'AY61', 'BF61', 'BM61', 'BT61', 'CA61', 'CH61', 'CO61', 'CV61', 'DC61',
+        'DJ61', 'DQ61', 'DX61', 'EE61', 'EL61', 'ES61', 'EZ61', 'FG61', 'FN61', 'FU61',
+    ]
+    _fill_cells(ws, address_cells, customer.get('address'))
 
-    # 郵便番号（項番12）
-    if customer['postal_code']:
-        parts = customer['postal_code'].split('-')
+    # ============================================================
+    # 項番12: 郵便番号（3桁: AR67,AV67,AZ67 / 4桁: BH67,BL67,BP67,BT67）
+    # ============================================================
+    if customer.get('postal_code'):
+        parts = customer['postal_code'].replace('ー', '-').replace('－', '-').split('-')
         if len(parts) == 2:
-            ws['AR67'] = parts[0]
-            ws['BD67'] = f'－'
-            ws['BH67'] = parts[1]
+            _fill_cells(ws, ['AR67', 'AV67', 'AZ67'], parts[0])
+            _fill_cells(ws, ['BH67', 'BL67', 'BP67', 'BT67'], parts[1])
 
-    # 電話番号
-    if customer['phone']:
-        ws['CE67'] = customer['phone']
+    # 電話番号（DD67〜EZ67, 最大13文字）
+    phone_cells = [
+        'DD67', 'DH67', 'DL67', 'DP67', 'DT67', 'DX67',
+        'EB67', 'EF67', 'EJ67', 'EN67', 'ER67', 'EV67', 'EZ67',
+    ]
+    if customer.get('phone'):
+        _fill_cells(ws, phone_cells, customer['phone'].replace('-', '').replace('ー', ''))
 
-    # FAX
-    if customer['fax']:
-        ws['AR70'] = customer['fax']
+    # FAX番号（BQ70 結合セル）
+    if customer.get('fax'):
+        ws['BQ70'] = customer['fax']
 
-    # 法人又は個人の別（項番13）
-    if customer['corporation_type']:
+    # ============================================================
+    # 項番13: 法人又は個人の別
+    # ============================================================
+    if customer.get('corporation_type'):
         ws['AL75'] = str(customer['corporation_type'])
 
-    # 資本金額
-    if customer['capital_amount']:
-        ws['BT74'] = customer['capital_amount']
+    # 資本金額（千円）（行75: BT75,BX75,CB75,CF75,CJ75,CN75,CR75,CV75,CZ75）
+    capital_cells = ['BT75', 'BX75', 'CB75', 'CF75', 'CJ75', 'CN75', 'CR75', 'CV75', 'CZ75']
+    if customer.get('capital_amount'):
+        _fill_digits(ws, capital_cells, customer['capital_amount'])
 
-    # 法人番号
-    if customer['corporate_number']:
-        ws['DX74'] = customer['corporate_number']
+    # 法人番号（13桁: DX75,EB75,EF75,EJ75,EN75,ER75,EV75,EZ75,FD75,FH75,FL75,FP75,FT75）
+    corp_number_cells = [
+        'DX75', 'EB75', 'EF75', 'EJ75', 'EN75', 'ER75', 'EV75',
+        'EZ75', 'FD75', 'FH75', 'FL75', 'FP75', 'FT75',
+    ]
+    if customer.get('corporate_number'):
+        _fill_cells(ws, corp_number_cells, customer['corporate_number'])
 
-    # 兼業の有無（項番14）
-    if application['side_business']:
+    # ============================================================
+    # 項番14: 兼業の有無
+    # ============================================================
+    if application.get('side_business'):
         ws['AL78'] = str(application['side_business'])
-    if application['side_business_type']:
+    if application.get('side_business_type'):
         ws['CG77'] = application['side_business_type']
 
-    # 許可換えの区分（項番15）
-    if application['permit_transfer_category']:
+    # ============================================================
+    # 項番15: 許可換えの区分
+    # ============================================================
+    if application.get('permit_transfer_category'):
         ws['AL82'] = str(application['permit_transfer_category'])
 
-    # 申請者
-    if application['applicant_name']:
-        ws['CX13'] = application['applicant_name']
-    if application['applicant_address']:
-        ws['DL15'] = application['applicant_address']
+    # ============================================================
+    # 項番16: 旧許可番号
+    # ============================================================
+    # 旧許可番号（6桁: CZ88,DD88,DH88,DL88,DP88,DT88）
+    old_permit_cells = ['CZ88', 'DD88', 'DH88', 'DL88', 'DP88', 'DT88']
+    if application.get('old_permit_number'):
+        _fill_digits(ws, old_permit_cells, application['old_permit_number'])
+    if application.get('old_permit_year'):
+        _fill_digits(ws, ['EL88', 'EP88'], application['old_permit_year'])
+    if application.get('old_permit_month'):
+        _fill_digits(ws, ['EW88', 'FA88'], application['old_permit_month'])
+    if application.get('old_permit_day'):
+        _fill_digits(ws, ['FH88', 'FL88'], application['old_permit_day'])
 
-    # 申請者代理人
-    if application['proxy_name']:
+    # ============================================================
+    # 申請者・代理人（行13-16）
+    # ============================================================
+    if application.get('applicant_name'):
+        ws['DK13'] = application['applicant_name']
+    if application.get('applicant_address'):
+        ws['DL15'] = application['applicant_address']
+    if application.get('proxy_name'):
         ws['DL16'] = application['proxy_name']
 
-    # 連絡先
-    if application['contact_organization']:
+    # ============================================================
+    # 連絡先（行97-105）
+    # ============================================================
+    if application.get('contact_organization'):
         ws['B97'] = application['contact_organization']
-    if application['contact_name']:
+    if application.get('contact_name'):
         ws['AZ97'] = application['contact_name']
-    if application['contact_phone']:
+    if application.get('contact_phone'):
         ws['B101'] = application['contact_phone']
-    if application['contact_fax']:
+    if application.get('contact_fax'):
         ws['B105'] = application['contact_fax']
 
     # バイトデータとして返す
-    from io import BytesIO
     output = BytesIO()
     wb.save(output)
     output.seek(0)
