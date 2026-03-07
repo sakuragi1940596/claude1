@@ -5,6 +5,7 @@ from openpyxl import load_workbook
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '許可申請書.xlsx')
 OFFICERS_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '役員の一覧（法人用）.xlsx')
 OFFICES_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '営業所一覧（新規）.xlsx')
+TECHNICIANS_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '営業所技術者等一覧.xlsx')
 
 # 建設業29業種コード
 BUSINESS_TYPES = [
@@ -477,6 +478,133 @@ def generate_offices_list_excel(application, customer, offices):
                 if code in selected:
                     col = OFFICES_BIZ_TYPE_COLUMNS[i]
                     ws[f'{col}{cfg["biz_row"]}'] = '1'
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
+
+def generate_technicians_excel(technicians, application_date=None):
+    """営業所技術者等一覧表（様式第一号別紙四）のExcelを生成してバイトデータを返す"""
+    from openpyxl.styles import Alignment, Font, Border, Side
+
+    wb = load_workbook(TECHNICIANS_TEMPLATE_PATH)
+    ws = wb['様式第一号別紙四']
+
+    # 日付（行8: 結合セル B8:EW8）
+    if application_date:
+        parts = application_date.split('-')
+        if len(parts) == 3:
+            year = int(parts[0]) - 2018  # 西暦→令和
+            month = int(parts[1])
+            day = int(parts[2])
+            ws['B8'] = f'令和　{year}　年　{month}　月　{day}　日'
+
+    # データエリアの大きな結合セルを解除
+    merges_to_remove = []
+    for merged in ws.merged_cells.ranges:
+        if merged.min_row == 13 and merged.max_row == 81:
+            merges_to_remove.append(str(merged))
+    for m in merges_to_remove:
+        ws.unmerge_cells(m)
+
+    # スタイル定義
+    thin_border_side = Side(style='thin', color='000000')
+    cell_font = Font(name='ＭＳ 明朝', size=10)
+    cell_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    # 列範囲定義（データ4列）
+    col_ranges = [
+        (2, 37),    # B:AK  - 営業所の名称
+        (38, 85),   # AL:CG - 営業所技術者等の氏名
+        (86, 119),  # CH:DO - 建設工事の種類
+        (120, 153), # DP:EW - 有資格区分
+    ]
+
+    # 技術者1名あたりの行数（3行分を使用）
+    rows_per_tech = 3
+    max_technicians = (81 - 13 + 1) // rows_per_tech  # 最大23名
+
+    for i, tech in enumerate(technicians[:max_technicians]):
+        start_row = 13 + i * rows_per_tech
+        end_row = start_row + rows_per_tech - 1
+
+        # 各列グループのセルを結合
+        from openpyxl.utils import get_column_letter
+        for col_start, col_end in col_ranges:
+            merge_range = f'{get_column_letter(col_start)}{start_row}:{get_column_letter(col_end)}{end_row}'
+            ws.merge_cells(merge_range)
+
+        # 結合セルの先頭セルにスタイルを適用
+        for col_idx, (col_start, col_end) in enumerate(col_ranges):
+            cell = ws.cell(row=start_row, column=col_start)
+            cell.font = cell_font
+            cell.alignment = cell_alignment
+
+        # 罫線を各行・列に適用（結合セル全体に罫線が表示されるように）
+        for row in range(start_row, end_row + 1):
+            for col_start, col_end in col_ranges:
+                for col in range(col_start, col_end + 1):
+                    cell = ws.cell(row=row, column=col)
+                    border_left = thin_border_side if col == col_start else None
+                    border_right = thin_border_side if col == col_end else None
+                    border_top = thin_border_side if row == start_row else None
+                    border_bottom = thin_border_side if row == end_row else None
+                    cell.border = Border(
+                        left=border_left or Side(),
+                        right=border_right or Side(),
+                        top=border_top or Side(),
+                        bottom=border_bottom or Side(),
+                    )
+
+        # 行の高さを設定
+        for row in range(start_row, end_row + 1):
+            ws.row_dimensions[row].height = 18
+
+        # ① 営業所の名称（B列）
+        office_name = tech.get('office_name', '') or ''
+        ws.cell(row=start_row, column=2).value = office_name
+
+        # ② 営業所技術者等の氏名（AL列）- フリガナ＋改行＋氏名
+        name = tech.get('name', '') or ''
+        name_kana = tech.get('name_kana', '') or ''
+        if name_kana:
+            ws.cell(row=start_row, column=38).value = f'{name_kana}\n{name}'
+        else:
+            ws.cell(row=start_row, column=38).value = name
+
+        # ③ 建設工事の種類（CH列）
+        construction_types = tech.get('construction_types', '') or ''
+        ws.cell(row=start_row, column=86).value = construction_types
+
+        # ④ 有資格区分（DP列）- 建設工事の種類と対応するように改行
+        qualifications = tech.get('qualifications', '') or ''
+        ws.cell(row=start_row, column=120).value = qualifications
+
+    # 未使用行の残りエリアを結合（技術者データの後ろ）
+    used_rows = len(technicians[:max_technicians]) * rows_per_tech
+    remaining_start = 13 + used_rows
+    if remaining_start <= 81:
+        from openpyxl.utils import get_column_letter
+        for col_start, col_end in col_ranges:
+            merge_range = f'{get_column_letter(col_start)}{remaining_start}:{get_column_letter(col_end)}81'
+            ws.merge_cells(merge_range)
+        # 残りエリアに罫線を適用
+        for col_start, col_end in col_ranges:
+            for row in range(remaining_start, 82):
+                for col in range(col_start, col_end + 1):
+                    cell = ws.cell(row=row, column=col)
+                    border_left = thin_border_side if col == col_start else None
+                    border_right = thin_border_side if col == col_end else None
+                    border_top = thin_border_side if row == remaining_start else None
+                    border_bottom = thin_border_side if row == 81 else None
+                    cell.border = Border(
+                        left=border_left or Side(),
+                        right=border_right or Side(),
+                        top=border_top or Side(),
+                        bottom=border_bottom or Side(),
+                    )
 
     output = BytesIO()
     wb.save(output)

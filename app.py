@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from models import get_db, init_db
-from excel_export import generate_excel, generate_officers_excel, generate_offices_list_excel, BUSINESS_TYPES
+from excel_export import generate_excel, generate_officers_excel, generate_offices_list_excel, generate_technicians_excel, BUSINESS_TYPES
 from io import BytesIO
 import os
 
@@ -417,6 +417,74 @@ def offices_export(app_id):
     )
     customer_name = customer['name'] or '営業所一覧'
     filename = f"営業所一覧_{customer_name}.xlsx"
+
+    return send_file(
+        BytesIO(excel_data),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+# ===== 営業所技術者等一覧管理 =====
+@app.route('/applications/<int:app_id>/technicians', methods=['GET'])
+def technicians_list(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    technicians = db.execute(
+        'SELECT * FROM technicians WHERE application_id=? ORDER BY sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
+    return render_template('technicians.html', customer=customer, application=application,
+                           technicians=technicians)
+
+
+@app.route('/applications/<int:app_id>/technicians/save', methods=['POST'])
+def technicians_save(app_id):
+    db = get_db()
+    db.execute('DELETE FROM technicians WHERE application_id=?', (app_id,))
+    total_rows = int(request.form.get('total_rows', 0))
+    sort_order = 0
+    for i in range(total_rows):
+        if request.form.get(f'delete_{i}'):
+            continue
+        office_name = request.form.get(f'office_name_{i}', '').strip()
+        name = request.form.get(f'name_{i}', '').strip()
+        name_kana = request.form.get(f'name_kana_{i}', '').strip()
+        construction_types = request.form.get(f'construction_types_{i}', '').strip()
+        qualifications = request.form.get(f'qualifications_{i}', '').strip()
+        if name or office_name:
+            db.execute('''
+                INSERT INTO technicians (application_id, office_name, name, name_kana,
+                    construction_types, qualifications, sort_order)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (app_id, office_name, name, name_kana, construction_types, qualifications, sort_order))
+            sort_order += 1
+    db.commit()
+    db.close()
+    flash('営業所技術者等一覧を保存しました。', 'success')
+    return redirect(url_for('technicians_list', app_id=app_id))
+
+
+@app.route('/applications/<int:app_id>/technicians/export')
+def technicians_export(app_id):
+    db = get_db()
+    application = db.execute('SELECT * FROM applications WHERE id=?', (app_id,)).fetchone()
+    customer = db.execute('SELECT * FROM customers WHERE id=?', (application['customer_id'],)).fetchone()
+    technicians = db.execute(
+        'SELECT * FROM technicians WHERE application_id=? ORDER BY sort_order',
+        (app_id,)
+    ).fetchall()
+    db.close()
+
+    excel_data = generate_technicians_excel(
+        [dict(t) for t in technicians],
+        application['application_date']
+    )
+    customer_name = customer['name'] or '技術者一覧'
+    filename = f"営業所技術者等一覧_{customer_name}.xlsx"
 
     return send_file(
         BytesIO(excel_data),

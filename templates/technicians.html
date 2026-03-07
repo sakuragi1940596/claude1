@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ customer['name'] }} - 営業所技術者等一覧表</h2>
+    <div>
+        <a href="{{ url_for('technicians_export', app_id=application['id']) }}" class="btn btn-success">Excel出力</a>
+        <a href="{{ url_for('application_list', customer_id=customer['id']) }}" class="btn">申請書一覧に戻る</a>
+    </div>
+</div>
+
+<div class="alert alert-info" style="background:#e8f4fd;border:1px solid #bee5eb;padding:10px;margin-bottom:16px;border-radius:4px;">
+    <strong>入力のポイント：</strong>建設工事の種類と有資格区分は、対応関係がわかるように同じ行数で入力してください。<br>
+    例）建設工事の種類に「土ー９、とー９」と「園ー４」を改行で分けて入力し、有資格区分に「１３」と「０２」を改行で分けて入力すると、対応関係が保たれます。
+</div>
+
+<form method="POST" action="{{ url_for('technicians_save', app_id=application['id']) }}">
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width:3%">No.</th>
+                <th style="width:14%">営業所の名称</th>
+                <th style="width:10%">フリガナ</th>
+                <th style="width:13%">氏名</th>
+                <th style="width:28%">建設工事の種類</th>
+                <th style="width:22%">有資格区分</th>
+                <th style="width:6%">削除</th>
+            </tr>
+        </thead>
+        <tbody id="technicians-tbody">
+            {% for tech in technicians %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><input type="text" name="office_name_{{ loop.index0 }}" value="{{ tech['office_name'] or '' }}" class="form-control"></td>
+                <td><input type="text" name="name_kana_{{ loop.index0 }}" value="{{ tech['name_kana'] or '' }}" class="form-control" placeholder="ヤマダ タロウ"></td>
+                <td><input type="text" name="name_{{ loop.index0 }}" value="{{ tech['name'] or '' }}" class="form-control" placeholder="山田 太郎"></td>
+                <td><textarea name="construction_types_{{ loop.index0 }}" class="form-control" rows="3" placeholder="土ー９、とー９&#10;園ー４">{{ tech['construction_types'] or '' }}</textarea></td>
+                <td><textarea name="qualifications_{{ loop.index0 }}" class="form-control" rows="3" placeholder="１３&#10;０２">{{ tech['qualifications'] or '' }}</textarea></td>
+                <td><label><input type="checkbox" name="delete_{{ loop.index0 }}" value="1"> 削除</label></td>
+            </tr>
+            {% endfor %}
+            {% for i in range(technicians|length, technicians|length + 3) %}
+            <tr>
+                <td>{{ i + 1 }}</td>
+                <td><input type="text" name="office_name_{{ i }}" value="" class="form-control"></td>
+                <td><input type="text" name="name_kana_{{ i }}" value="" class="form-control" placeholder="ヤマダ タロウ"></td>
+                <td><input type="text" name="name_{{ i }}" value="" class="form-control" placeholder="山田 太郎"></td>
+                <td><textarea name="construction_types_{{ i }}" class="form-control" rows="3" placeholder="土ー９、とー９&#10;園ー４"></textarea></td>
+                <td><textarea name="qualifications_{{ i }}" class="form-control" rows="3" placeholder="１３&#10;０２"></textarea></td>
+                <td></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <input type="hidden" name="total_rows" value="{{ technicians|length + 3 }}">
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">保存</button>
+    </div>
+</form>
+{% endblock %}

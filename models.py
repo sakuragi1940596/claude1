@@ -102,6 +102,19 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (application_id) REFERENCES applications(id)
         );
+
+        CREATE TABLE IF NOT EXISTS technicians (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            application_id INTEGER NOT NULL,
+            office_name TEXT,
+            name TEXT,
+            name_kana TEXT,
+            construction_types TEXT,
+            qualifications TEXT,
+            sort_order INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (application_id) REFERENCES applications(id)
+        );
     ''')
         # マイグレーション: 既存テーブルに新カラムを追加
     migrations = [
